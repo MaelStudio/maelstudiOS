@@ -1,6 +1,7 @@
 # maelstudiOS
 
 Logiciel pour ma montre intelligente ESP32
+En cours de développement!
 
 ## Photos
 
