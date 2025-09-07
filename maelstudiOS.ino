@@ -2,12 +2,12 @@
 #include <SPI.h>
 #include <Wire.h>
 #include <lvgl.h>
-#include <ui.h>
 #define USE_TFT_ESPI_LIBRARY
 #include "lv_xiao_round_screen.h"
-#include "actions.h"
 #include "I2C_BM8563.h"
 #include <Adafruit_BMP280.h>
+#include "ui.h"
+#include "actions.h"
 
 #define HAPTIC_PIN 41
 
