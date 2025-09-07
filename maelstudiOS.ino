@@ -28,8 +28,8 @@ Adafruit_BMP280 bmp;
 
 // BATTERY
 #define NUM_ADC_SAMPLE 20           // Sampling frequency
-#define BATTERY_DEFICIT_VOL 1850    // Battery voltage value at loss of charge (mV)
-#define BATTERY_FULL_VOL 2450       // Battery voltage value at full charge (mV)
+#define BATTERY_DEFICIT_VOL 1400    // Battery voltage value at loss of charge (mV)
+#define BATTERY_FULL_VOL 2030       // Battery voltage value at full charge (mV)
 
 #define SECOND_ANGLE 3600.0 / 60.0
 #define MINUTE_ANGLE 3600.0 / 60.0
@@ -115,7 +115,7 @@ void loop() {
   lv_label_set_text(objects.temperature, buf);
 
   // BATTERY DIAL
-  int level = battery_level();
+  int level = batteryLevel();
   lv_label_set_text_fmt(objects.battery_voltage, "%i%", level);
   angle = map(level, 0, 100, -1200, 1200);
   lv_img_set_angle(objects.battery_hand, angle);
@@ -142,7 +142,7 @@ void updateVibration() {
   }
 }
 
-int battery_level(void) { // in percentage
+int batteryLevel(void) { // in percentage
   int mVolts = 0;
   for(int8_t i=0; i<NUM_ADC_SAMPLE; i++){
     mVolts += analogReadMilliVolts(D0);
