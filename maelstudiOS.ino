@@ -63,6 +63,10 @@ void setup() {
 
   // ADC
   analogReadResolution(12);
+
+  // Gesture control
+  lv_obj_add_event_cb(objects.watchface, watchfaceSwipe, LV_EVENT_GESTURE, NULL);
+  lv_obj_add_event_cb(objects.home, homeSwipe, LV_EVENT_GESTURE, NULL);
 }
 
 void loop() {
@@ -151,4 +155,30 @@ int batteryLevel(void) { // in percentage
   int level = map(mVolts, BATTERY_DEFICIT_VOL, BATTERY_FULL_VOL, 0, 100);
   level = (level < 0) ? 0 : ((level > 100) ? 100 : level);
   return level;
+}
+
+void watchfaceSwipe(lv_event_t * e) {
+  lv_obj_t * screen = lv_event_get_current_target(e);
+  lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+  switch(dir) {
+    case LV_DIR_LEFT:
+      loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300);
+      break;
+  }
+}
+
+void homeSwipe(lv_event_t * e) {
+  lv_obj_t * screen = lv_event_get_current_target(e);
+  lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+  switch(dir) {
+    case LV_DIR_LEFT:
+      break;
+    case LV_DIR_RIGHT:
+      loadScreenAnim(SCREEN_ID_WATCHFACE, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300);
+      break;
+    case LV_DIR_TOP:
+      break;
+    case LV_DIR_BOTTOM:
+      break;
+  }
 }
