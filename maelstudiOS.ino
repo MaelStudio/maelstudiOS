@@ -8,8 +8,13 @@
 #include <Adafruit_BMP280.h>
 #include "ui.h"
 #include "actions.h"
+#include "driver/gpio.h"
 
 #define HAPTIC_PIN 41
+
+// Display
+#define BACKLIGHT_PIN D6
+#define TOUCH_INT_PIN D7
 
 // Haptic motor
 unsigned long hapticEnd = 0;
@@ -36,10 +41,14 @@ Adafruit_BMP280 bmp;
 #define HOUR_ANGLE   3600.0 / 12.0
 #define MONTH_ANGLE  3600.0 / 12.0
 
+// AUTO SLEEP
+#define AUTO_SLEEP 20000 // Inactivity time for auto sleep (ms)
+unsigned long lastActive = 0;
+
 void setup() {
-  Serial.begin(115200);
-  
   // Initialize display
+  pinMode(BACKLIGHT_PIN, OUTPUT);
+  digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
   lv_init();
   lv_xiao_disp_init();
   lv_xiao_touch_init();
@@ -70,15 +79,15 @@ void setup() {
 }
 
 void loop() {
-  static unsigned long millisAtLastTick = 0;
-  static int lastSecond = -1;
+  unsigned long now = millis();
 
   // Read current RTC time
   rtc.getDate(&rtcDate);
   rtc.getTime(&rtcTime);
 
   // Keep track of millis offset inside the current second
-  unsigned long now = millis();
+  static unsigned long millisAtLastTick = 0;
+  static int lastSecond = -1;
   if (rtcTime.seconds != lastSecond) {
     // New tick from RTC
     lastSecond = rtcTime.seconds;
@@ -131,6 +140,24 @@ void loop() {
   // Update UI
   lv_timer_handler();
   ui_tick();
+
+  // Auto sleep
+  if (digitalRead(TOUCH_INT_PIN) == LOW) {
+    lastActive = now;
+  }
+
+  if (now - lastActive >= AUTO_SLEEP) {
+    digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display
+
+    // Enable wakeup on touch pin, GPIO 44 (falling edge)
+    gpio_wakeup_enable((gpio_num_t)TOUCH_INT_PIN, GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+    esp_light_sleep_start(); // ENTER LIGHT SLEEP
+
+    // When we wake up:
+    digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
+    lastActive = millis();
+  }
 }
 
 void vibrate(int duration = 10) {
