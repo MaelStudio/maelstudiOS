@@ -8,14 +8,10 @@
 #include <Adafruit_BMP280.h>
 #include "ui.h"
 #include "actions.h"
-#include "driver/gpio.h"
 
-// Display
-#define BACKLIGHT_PIN D6
-#define TOUCH_INT_PIN D7
+#define HAPTIC_PIN 41
 
 // Haptic motor
-#define HAPTIC_PIN 41
 unsigned long hapticEnd = 0;
 bool hapticActive = false;
 
@@ -40,13 +36,10 @@ Adafruit_BMP280 bmp;
 #define HOUR_ANGLE   3600.0 / 12.0
 #define MONTH_ANGLE  3600.0 / 12.0
 
-// AUTO SLEEP
-#define AUTO_SLEEP 20*1000 // Inactivity time for auto sleep (ms)
-unsigned long lastActive = 0;
-
 void setup() {
+  Serial.begin(115200);
+  
   // Initialize display
-  pinMode(BACKLIGHT_PIN, OUTPUT);
   lv_init();
   lv_xiao_disp_init();
   lv_xiao_touch_init();
@@ -77,15 +70,15 @@ void setup() {
 }
 
 void loop() {
-  unsigned long now = millis();
+  static unsigned long millisAtLastTick = 0;
+  static int lastSecond = -1;
 
   // Read current RTC time
   rtc.getDate(&rtcDate);
   rtc.getTime(&rtcTime);
 
   // Keep track of millis offset inside the current second
-  static unsigned long millisAtLastTick = 0;
-  static int lastSecond = -1;
+  unsigned long now = millis();
   if (rtcTime.seconds != lastSecond) {
     // New tick from RTC
     lastSecond = rtcTime.seconds;
@@ -110,7 +103,9 @@ void loop() {
   lv_img_set_angle(objects.minute_hand_shadow, minute_angle);
   lv_img_set_angle(objects.second_hand, second_angle);
   lv_img_set_angle(objects.second_hand_shadow, second_angle);
+
   lv_img_set_angle(objects.month_marker, (rtcDate.month-1)*MONTH_ANGLE);
+
 
   // BMP280
   float temperature = bmp.readTemperature(); // *C
@@ -136,20 +131,6 @@ void loop() {
   // Update UI
   lv_timer_handler();
   ui_tick();
-
-  // Auto sleep
-  if (now - lastActive >= AUTO_SLEEP) {
-    digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display
-
-    // Enable wakeup on touch pin, GPIO 44 (falling edge)
-    gpio_wakeup_enable((gpio_num_t)TOUCH_INT_PIN, GPIO_INTR_LOW_LEVEL);
-    esp_sleep_enable_gpio_wakeup();
-    esp_light_sleep_start(); // ENTER LIGHT SLEEP
-
-    // When we wake up:
-    digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
-    lastActive = millis();
-  }
 }
 
 void vibrate(int duration = 10) {
