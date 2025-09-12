@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+extern void action_open_app_camera(lv_event_t * e);
+extern void action_take_photo(lv_event_t * e);
 
 
 #ifdef __cplusplus

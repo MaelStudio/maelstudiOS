@@ -1,15 +1,40 @@
 #include <TFT_eSPI.h>
+#define USE_TFT_ESPI_LIBRARY
+#include "lv_xiao_round_screen.h"
 #include <SPI.h>
 #include <Wire.h>
 #include <lvgl.h>
-#define USE_TFT_ESPI_LIBRARY
-#include "lv_xiao_round_screen.h"
 #include "I2C_BM8563.h"
-#include <Adafruit_BMP280.h>
 #include "ui.h"
 #include "actions.h"
 #include "driver/gpio.h"
+#include <esp_camera.h>
+#include "SD.h"
+#include "camera.h"
 
+#define sensor_t sensor_t_bmp
+#include <Adafruit_Sensor.h>
+#undef sensor_t
+
+#include <Adafruit_BMP280.h>
+
+// APPS
+enum AppID {
+  HOME = -1,
+  APP_CAMERA = 0
+};
+AppID activeApp = HOME;
+
+// Camera app
+#define CAM_W 240
+#define CAM_H 240
+uint8_t cam_buf[CAM_W * CAM_H * 2];  // 2 bytes per pixel (RGB565)
+static lv_img_dsc_t cam_img_dsc;
+
+// SD
+#define SD_CS_PIN D2
+
+// Haptic
 #define HAPTIC_PIN 41
 
 // Display
@@ -18,6 +43,8 @@
 
 // Haptic motor
 unsigned long hapticEnd = 0;
+int hapticDuration = 0;
+bool hapticStart = false;
 bool hapticActive = false;
 
 // RTC
@@ -46,6 +73,8 @@ Adafruit_BMP280 bmp;
 unsigned long lastActive = 0;
 
 void setup() {
+  Serial.begin(115200);
+
   // Initialize display
   pinMode(BACKLIGHT_PIN, OUTPUT);
   digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
@@ -53,6 +82,20 @@ void setup() {
   lv_xiao_disp_init();
   lv_xiao_touch_init();
   ui_init();
+
+  // Initialize SD card
+  pinMode(SD_CS_PIN, OUTPUT);
+  if(!SD.begin(SD_CS_PIN)){
+    //Serial.println("Card mount failed");
+    while (1) {}
+  }
+
+  // Initialize camera
+  esp_err_t err = startCam();
+  if (err != ESP_OK) {
+    //Serial.printf("Camera init failed with error 0x%x", err);
+    while (1) {}
+  }
 
   // Haptic
   pinMode(HAPTIC_PIN, OUTPUT);
@@ -76,10 +119,22 @@ void setup() {
   // Gesture control
   lv_obj_add_event_cb(objects.watchface, watchfaceSwipe, LV_EVENT_GESTURE, NULL);
   lv_obj_add_event_cb(objects.home, homeSwipe, LV_EVENT_GESTURE, NULL);
+  lv_obj_add_event_cb(objects.app_camera, appSwipe, LV_EVENT_GESTURE, NULL);
+
+  // Camera APP
+  cam_img_dsc.header.always_zero = 0;
+  cam_img_dsc.header.w = CAM_W;
+  cam_img_dsc.header.h = CAM_H;
+  cam_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+  cam_img_dsc.data_size = sizeof(cam_buf);
+  cam_img_dsc.data = cam_buf;
 }
 
 void loop() {
   unsigned long now = millis();
+
+  // Vibration
+  updateVibration();
 
   // Read current RTC time
   rtc.getDate(&rtcDate);
@@ -134,18 +189,28 @@ void loop() {
   lv_img_set_angle(objects.battery_hand, angle);
   lv_img_set_angle(objects.battery_hand_shadow, angle);
 
-  // Vibration
-  updateVibration();
+
+  // APPS
+  if (activeApp == APP_CAMERA) {
+    camera_fb_t *fb = esp_camera_fb_get();
+    // Convert colour format to match LVGL's
+    for (int i = 0; i < fb->len; i += 2) {
+      cam_buf[i]     = fb->buf[i + 1];
+      cam_buf[i + 1] = fb->buf[i];
+    }
+    esp_camera_fb_return(fb); // Return camera buffer
+
+    // Update camera image in ui
+    lv_img_set_src(objects.camera_feed, &cam_img_dsc);
+    lv_obj_invalidate(objects.camera_feed);
+  }
 
   // Update UI
   lv_timer_handler();
   ui_tick();
 
   // Auto sleep
-  if (digitalRead(TOUCH_INT_PIN) == LOW) {
-    lastActive = now;
-  }
-
+  if (digitalRead(TOUCH_INT_PIN) == LOW) lastActive = now;
   if (now - lastActive >= AUTO_SLEEP) {
     digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display
 
@@ -160,17 +225,68 @@ void loop() {
   }
 }
 
+// VIBRATION
 void vibrate(int duration = 10) {
-  digitalWrite(HAPTIC_PIN, HIGH);
-  hapticEnd = millis() + duration;
-  hapticActive = true;
+  hapticStart = true;
+  hapticDuration = duration;
 }
 
 void updateVibration() {
+  if (hapticStart) {
+    digitalWrite(HAPTIC_PIN, HIGH);
+    hapticStart = false;
+    hapticActive = true;
+    hapticEnd = millis() + hapticDuration;
+  }
   if (hapticActive && millis() >= hapticEnd) {
     digitalWrite(HAPTIC_PIN, LOW);
     hapticActive = false;
   }
+}
+
+// EVENT HANDLERS
+void action_open_app_camera(lv_event_t *e) {
+  loadScreenAnim(SCREEN_ID_APP_CAMERA, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
+  activeApp = APP_CAMERA;
+}
+
+void action_take_photo(lv_event_t *e) {
+  vibrate(20);
+
+  camera_fb_t *fb = esp_camera_fb_get();
+
+  uint8_t *jpegBuf = nullptr;
+  size_t jpegLen = 0;
+
+  frame2jpg(fb, 80, &jpegBuf, &jpegLen);
+  int index = getNextPhotoIndex();
+  char filename[32];
+  sprintf(filename, "/image%04d.jpg", index);
+
+  File file = SD.open(filename, FILE_WRITE);
+  if (file) {
+    file.write(jpegBuf, jpegLen);
+    file.close();
+  }
+  free(jpegBuf);
+  esp_camera_fb_return(fb);
+}
+
+int getNextPhotoIndex() {
+  int maxIndex = 0;
+  File root = SD.open("/");
+  while (true) {
+    File file = root.openNextFile();
+    if (!file) break;
+    String name = file.name();
+
+    if (name.startsWith("image") && name.endsWith(".jpg")) {
+      int num = name.substring(5, name.length() - 4).toInt(); // extract number
+      if (num > maxIndex) maxIndex = num;
+    }
+    file.close();
+  }
+  return maxIndex + 1;
 }
 
 int batteryLevel(void) { // in percentage
@@ -185,27 +301,19 @@ int batteryLevel(void) { // in percentage
 }
 
 void watchfaceSwipe(lv_event_t * e) {
-  lv_obj_t * screen = lv_event_get_current_target(e);
   lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-  switch(dir) {
-    case LV_DIR_LEFT:
-      loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300);
-      break;
-  }
+  if (dir == LV_DIR_LEFT) loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300);
 }
 
 void homeSwipe(lv_event_t * e) {
-  lv_obj_t * screen = lv_event_get_current_target(e);
   lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-  switch(dir) {
-    case LV_DIR_LEFT:
-      break;
-    case LV_DIR_RIGHT:
-      loadScreenAnim(SCREEN_ID_WATCHFACE, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300);
-      break;
-    case LV_DIR_TOP:
-      break;
-    case LV_DIR_BOTTOM:
-      break;
+  if (dir == LV_DIR_RIGHT) loadScreenAnim(SCREEN_ID_WATCHFACE, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300);
+}
+
+void appSwipe(lv_event_t * e) {
+  lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+  if (dir == LV_DIR_TOP) {
+    loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_TOP, 300);
+    activeApp = HOME;
   }
 }

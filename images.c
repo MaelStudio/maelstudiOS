@@ -1,6 +1,6 @@
 #include "images.h"
 
-const ext_img_desc_t images[12] = {
+const ext_img_desc_t images[15] = {
     { "camera", &img_camera },
     { "watchface", &img_watchface },
     { "hour_hand", &img_hour_hand },
@@ -13,4 +13,7 @@ const ext_img_desc_t images[12] = {
     { "dial_hand_shadow", &img_dial_hand_shadow },
     { "month_marker", &img_month_marker },
     { "top_bolt", &img_top_bolt },
+    { "cam_app_icon", &img_cam_app_icon },
+    { "shutter", &img_shutter },
+    { "shutter_pressed", &img_shutter_pressed },
 };

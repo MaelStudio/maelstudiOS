@@ -29,9 +29,9 @@ typedef struct _objects_t {
     lv_obj_t *second_hand_shadow;
     lv_obj_t *second_hand;
     lv_obj_t *top_bolt;
-    lv_obj_t *apps;
-    lv_obj_t *camera;
-    lv_obj_t *obj0;
+    lv_obj_t *camera_app_icon;
+    lv_obj_t *camera_feed;
+    lv_obj_t *shutter;
 } objects_t;
 
 extern objects_t objects;

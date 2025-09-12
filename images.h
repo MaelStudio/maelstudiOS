@@ -19,6 +19,9 @@ extern const lv_img_dsc_t img_dial_hand;
 extern const lv_img_dsc_t img_dial_hand_shadow;
 extern const lv_img_dsc_t img_month_marker;
 extern const lv_img_dsc_t img_top_bolt;
+extern const lv_img_dsc_t img_cam_app_icon;
+extern const lv_img_dsc_t img_shutter;
+extern const lv_img_dsc_t img_shutter_pressed;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T
@@ -28,7 +31,7 @@ typedef struct _ext_img_desc_t {
 } ext_img_desc_t;
 #endif
 
-extern const ext_img_desc_t images[12];
+extern const ext_img_desc_t images[15];
 
 
 #ifdef __cplusplus
