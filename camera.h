@@ -1,3 +1,4 @@
+#include "sensor.h"
 #include <esp_camera.h>
 
 #define PWDN_GPIO_NUM     -1
@@ -18,7 +19,7 @@
 #define HREF_GPIO_NUM     47
 #define PCLK_GPIO_NUM     13
 
-esp_err_t startCam() {
+esp_err_t initCam(framesize_t frameSize) {
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -38,12 +39,13 @@ esp_err_t startCam() {
   config.pin_sscb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
+  
   config.xclk_freq_hz = 20000000;
-  config.frame_size = FRAMESIZE_240X240;
-  config.pixel_format = PIXFORMAT_RGB565;
+  config.frame_size = frameSize;
+  config.pixel_format = PIXFORMAT_JPEG;
   config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
   config.fb_location = CAMERA_FB_IN_PSRAM;
-  config.jpeg_quality = 12;
+  config.jpeg_quality = 10;
   config.fb_count = 1;
 
   esp_err_t err = esp_camera_init(&config);

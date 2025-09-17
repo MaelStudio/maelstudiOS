@@ -26,10 +26,11 @@ enum AppID {
 AppID activeApp = HOME;
 
 // Camera app
-#define CAM_W 240
-#define CAM_H 240
-uint8_t cam_buf[CAM_W * CAM_H * 2];  // 2 bytes per pixel (RGB565)
+#define SCREEN_W 240
+#define SCREEN_H 240
+uint8_t cam_buf[SCREEN_W * SCREEN_H * 2];  // 2 bytes per pixel (RGB565)
 static lv_img_dsc_t cam_img_dsc;
+bool takingPhoto = false;
 
 // SD
 #define SD_CS_PIN D2
@@ -86,16 +87,23 @@ void setup() {
   // Initialize SD card
   pinMode(SD_CS_PIN, OUTPUT);
   if(!SD.begin(SD_CS_PIN)){
-    //Serial.println("Card mount failed");
+    Serial.println("Card mount failed");
     while (1) {}
   }
 
   // Initialize camera
-  esp_err_t err = startCam();
+  esp_err_t err = initCam(FRAMESIZE_UXGA); // Init with largest framesize to avoid problems
   if (err != ESP_OK) {
-    //Serial.printf("Camera init failed with error 0x%x", err);
+    Serial.printf("Camera init failed with error 0x%x", err);
     while (1) {}
   }
+  
+  sensor_t * s = esp_camera_sensor_get();
+  s->set_framesize(s, FRAMESIZE_240X240);
+
+  // Rotate 180° because camera is mounted upside down
+  s->set_vflip(s, 1);   // vertical flip
+  s->set_hmirror(s, 1); // horizontal mirror
 
   // Haptic
   pinMode(HAPTIC_PIN, OUTPUT);
@@ -123,8 +131,8 @@ void setup() {
 
   // Camera APP
   cam_img_dsc.header.always_zero = 0;
-  cam_img_dsc.header.w = CAM_W;
-  cam_img_dsc.header.h = CAM_H;
+  cam_img_dsc.header.w = SCREEN_W;
+  cam_img_dsc.header.h = SCREEN_H;
   cam_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
   cam_img_dsc.data_size = sizeof(cam_buf);
   cam_img_dsc.data = cam_buf;
@@ -184,20 +192,16 @@ void loop() {
 
   // BATTERY DIAL
   int level = batteryLevel();
-  lv_label_set_text_fmt(objects.battery_voltage, "%i%", level);
+  lv_label_set_text_fmt(objects.battery_voltage, "%i%%", level);
   angle = map(level, 0, 100, -1200, 1200);
   lv_img_set_angle(objects.battery_hand, angle);
   lv_img_set_angle(objects.battery_hand_shadow, angle);
 
 
   // APPS
-  if (activeApp == APP_CAMERA) {
+  if (activeApp == APP_CAMERA && !takingPhoto) {
     camera_fb_t *fb = esp_camera_fb_get();
-    // Convert colour format to match LVGL's
-    for (int i = 0; i < fb->len; i += 2) {
-      cam_buf[i]     = fb->buf[i + 1];
-      cam_buf[i + 1] = fb->buf[i];
-    }
+    jpg2rgb565(fb->buf, fb->len, cam_buf, JPG_SCALE_NONE);
     esp_camera_fb_return(fb); // Return camera buffer
 
     // Update camera image in ui
@@ -251,25 +255,35 @@ void action_open_app_camera(lv_event_t *e) {
 }
 
 void action_take_photo(lv_event_t *e) {
+  unsigned long start = millis();
+  takingPhoto = true;
   vibrate(20);
+
+  sensor_t * s = esp_camera_sensor_get();
+  s->set_framesize(s, FRAMESIZE_UXGA);
+
+  // Throw away a couple of frames so exposure can settle
+  for (int i = 0; i < 3; i++) {
+    esp_camera_fb_return(esp_camera_fb_get());
+  }
 
   camera_fb_t *fb = esp_camera_fb_get();
 
-  uint8_t *jpegBuf = nullptr;
-  size_t jpegLen = 0;
-
-  frame2jpg(fb, 80, &jpegBuf, &jpegLen);
   int index = getNextPhotoIndex();
   char filename[32];
   sprintf(filename, "/image%04d.jpg", index);
 
   File file = SD.open(filename, FILE_WRITE);
   if (file) {
-    file.write(jpegBuf, jpegLen);
+    file.write(fb->buf, fb->len);
     file.close();
   }
-  free(jpegBuf);
   esp_camera_fb_return(fb);
+
+  s->set_framesize(s, FRAMESIZE_240X240);
+  Serial.printf("Took photo %s in %i ms\n", filename, (millis() - start));
+
+  takingPhoto = false;
 }
 
 int getNextPhotoIndex() {
