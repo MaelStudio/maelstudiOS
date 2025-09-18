@@ -92,18 +92,12 @@ void setup() {
   }
 
   // Initialize camera
-  esp_err_t err = initCam(FRAMESIZE_UXGA); // Init with largest framesize to avoid problems
+  esp_err_t err = initCam();
   if (err != ESP_OK) {
     Serial.printf("Camera init failed with error 0x%x", err);
     while (1) {}
   }
-  
-  sensor_t * s = esp_camera_sensor_get();
-  s->set_framesize(s, FRAMESIZE_240X240);
-
-  // Rotate 180° because camera is mounted upside down
-  s->set_vflip(s, 1);   // vertical flip
-  s->set_hmirror(s, 1); // horizontal mirror
+  esp_camera_deinit(); // Deinit to save power
 
   // Haptic
   pinMode(HAPTIC_PIN, OUTPUT);
@@ -250,6 +244,7 @@ void updateVibration() {
 
 // EVENT HANDLERS
 void action_open_app_camera(lv_event_t *e) {
+  initCam();
   loadScreenAnim(SCREEN_ID_APP_CAMERA, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
   activeApp = APP_CAMERA;
 }
@@ -286,7 +281,7 @@ void action_take_photo(lv_event_t *e) {
   file.close();
   
   esp_camera_fb_return(fb);
-
+  
   s->set_framesize(s, FRAMESIZE_240X240);
   Serial.printf("Took photo %s in %i ms\n", filename, (millis() - start));
 
@@ -317,6 +312,7 @@ void homeSwipe(lv_event_t * e) {
 void appSwipe(lv_event_t * e) {
   lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
   if (dir == LV_DIR_TOP) {
+    esp_camera_deinit();
     loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_TOP, 300);
     activeApp = HOME;
   }

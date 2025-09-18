@@ -19,7 +19,7 @@
 #define HREF_GPIO_NUM     47
 #define PCLK_GPIO_NUM     13
 
-esp_err_t initCam(framesize_t frameSize) {
+esp_err_t initCam() {
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -41,7 +41,7 @@ esp_err_t initCam(framesize_t frameSize) {
   config.pin_reset = RESET_GPIO_NUM;
   
   config.xclk_freq_hz = 20000000;
-  config.frame_size = frameSize;
+  config.frame_size = FRAMESIZE_UXGA; // Init with largest framesize to avoid problems
   config.pixel_format = PIXFORMAT_JPEG;
   config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
   config.fb_location = CAMERA_FB_IN_PSRAM;
@@ -49,5 +49,12 @@ esp_err_t initCam(framesize_t frameSize) {
   config.fb_count = 1;
 
   esp_err_t err = esp_camera_init(&config);
+
+  sensor_t * s = esp_camera_sensor_get();
+  s->set_framesize(s, FRAMESIZE_240X240); // Switch back to display resolution
+  // Rotate 180° because camera is mounted upside down
+  s->set_vflip(s, 1);   // vertical flip
+  s->set_hmirror(s, 1); // horizontal mirror
+
   return err;
 }
