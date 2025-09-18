@@ -1,4 +1,3 @@
-#include <TFT_eSPI.h>
 #define USE_TFT_ESPI_LIBRARY
 #include "lv_xiao_round_screen.h"
 #include <SPI.h>
@@ -26,9 +25,7 @@ enum AppID {
 AppID activeApp = HOME;
 
 // Camera app
-#define SCREEN_W 240
-#define SCREEN_H 240
-uint8_t cam_buf[SCREEN_W * SCREEN_H * 2];  // 2 bytes per pixel (RGB565)
+uint8_t cam_buf[SCREEN_WIDTH * SCREEN_HEIGHT * 2];  // 2 bytes per pixel (RGB565)
 static lv_img_dsc_t cam_img_dsc;
 bool takingPhoto = false;
 
@@ -125,8 +122,8 @@ void setup() {
 
   // Camera APP
   cam_img_dsc.header.always_zero = 0;
-  cam_img_dsc.header.w = SCREEN_W;
-  cam_img_dsc.header.h = SCREEN_H;
+  cam_img_dsc.header.w = SCREEN_WIDTH;
+  cam_img_dsc.header.h = SCREEN_HEIGHT;
   cam_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
   cam_img_dsc.data_size = sizeof(cam_buf);
   cam_img_dsc.data = cam_buf;
@@ -215,8 +212,10 @@ void loop() {
   }
 
   if (digitalRead(TOUCH_INT_PIN) == LOW) lastActive = now;
+  
   if (now - lastActive >= AUTO_SLEEP) {
-    digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display
+    digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display backlight
+    tft.writecommand(0x10); // Put display to sleep
 
     // Enable wakeup on touch pin, GPIO 44 (falling edge)
     gpio_wakeup_enable((gpio_num_t)TOUCH_INT_PIN, GPIO_INTR_LOW_LEVEL);
@@ -224,10 +223,11 @@ void loop() {
     esp_light_sleep_start(); // ENTER LIGHT SLEEP
 
     // When we wake up:
-    digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
+    tft.begin();
     lastActive = millis();
     wakeUp = true;
   }
+
 }
 
 // VIBRATION
