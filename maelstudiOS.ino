@@ -263,44 +263,34 @@ void action_take_photo(lv_event_t *e) {
   s->set_framesize(s, FRAMESIZE_UXGA);
 
   // Throw away a couple of frames so exposure can settle
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 5; i++) {
     esp_camera_fb_return(esp_camera_fb_get());
   }
 
   camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb) return;
 
-  int index = getNextPhotoIndex();
+  rtc.getDate(&rtcDate);
+  rtc.getTime(&rtcTime);
+
   char filename[32];
-  sprintf(filename, "/image%04d.jpg", index);
+  snprintf(filename, sizeof(filename),
+           "/%04d-%02d-%02d_%02d-%02d-%02d.jpg",
+           rtcDate.year, rtcDate.month, rtcDate.date,
+           rtcTime.hours, rtcTime.minutes, rtcTime.seconds);
 
   File file = SD.open(filename, FILE_WRITE);
-  if (file) {
-    file.write(fb->buf, fb->len);
-    file.close();
-  }
+  if (!file) return;
+  
+  file.write(fb->buf, fb->len);
+  file.close();
+  
   esp_camera_fb_return(fb);
 
   s->set_framesize(s, FRAMESIZE_240X240);
   Serial.printf("Took photo %s in %i ms\n", filename, (millis() - start));
 
   takingPhoto = false;
-}
-
-int getNextPhotoIndex() {
-  int maxIndex = 0;
-  File root = SD.open("/");
-  while (true) {
-    File file = root.openNextFile();
-    if (!file) break;
-    String name = file.name();
-
-    if (name.startsWith("image") && name.endsWith(".jpg")) {
-      int num = name.substring(5, name.length() - 4).toInt(); // extract number
-      if (num > maxIndex) maxIndex = num;
-    }
-    file.close();
-  }
-  return maxIndex + 1;
 }
 
 int batteryLevel(void) { // in percentage
