@@ -208,6 +208,12 @@ void loop() {
   ui_tick();
 
   // Auto sleep
+  static bool wakeUp = false;
+  if (wakeUp) { // Turn on display after UI update
+    digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
+    wakeUp = false;
+  }
+
   if (digitalRead(TOUCH_INT_PIN) == LOW) lastActive = now;
   if (now - lastActive >= AUTO_SLEEP) {
     digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display
@@ -220,6 +226,7 @@ void loop() {
     // When we wake up:
     digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
     lastActive = millis();
+    wakeUp = true;
   }
 }
 
