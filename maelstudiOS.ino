@@ -9,6 +9,7 @@
 #include "driver/gpio.h"
 #include <esp_camera.h>
 #include "SD.h"
+#include <Preferences.h>
 #include "camera.h"
 
 #define sensor_t sensor_t_bmp
@@ -69,13 +70,32 @@ Adafruit_BMP280 bmp;
 // AUTO SLEEP
 #define AUTO_SLEEP 20000 // Inactivity time for auto sleep (ms)
 unsigned long lastActive = 0;
+bool wakeUp = true;
+
+// Preferences
+Preferences preferences;
 
 void setup() {
+  pinMode(BACKLIGHT_PIN, OUTPUT);
+  pinMode(TOUCH_INT_PIN, INPUT_PULLUP);
+
+  preferences.begin("config", false);
+
+  if (preferences.getBool("autoSleepFlag", false)) {
+    preferences.putBool("autoSleepFlag", false);
+    digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display backlight
+
+    // Enable wakeup on touch pin, GPIO 44 (falling edge)
+    gpio_wakeup_enable((gpio_num_t)TOUCH_INT_PIN, GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+    esp_light_sleep_start(); // ENTER LIGHT SLEEP
+
+    lastActive = millis();
+  }
+  
   Serial.begin(115200);
 
   // Initialize display
-  pinMode(BACKLIGHT_PIN, OUTPUT);
-  digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
   lv_init();
   lv_xiao_disp_init();
   lv_xiao_touch_init();
@@ -205,7 +225,6 @@ void loop() {
   ui_tick();
 
   // Auto sleep
-  static bool wakeUp = false;
   if (wakeUp) { // Turn on display after UI update
     digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
     wakeUp = false;
@@ -214,20 +233,9 @@ void loop() {
   if (digitalRead(TOUCH_INT_PIN) == LOW) lastActive = now;
   
   if (now - lastActive >= AUTO_SLEEP) {
-    digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display backlight
-    tft.writecommand(0x10); // Put display to sleep
-
-    // Enable wakeup on touch pin, GPIO 44 (falling edge)
-    gpio_wakeup_enable((gpio_num_t)TOUCH_INT_PIN, GPIO_INTR_LOW_LEVEL);
-    esp_sleep_enable_gpio_wakeup();
-    esp_light_sleep_start(); // ENTER LIGHT SLEEP
-
-    // When we wake up:
-    tft.begin();
-    lastActive = millis();
-    wakeUp = true;
+    preferences.putBool("autoSleepFlag", true);
+    ESP.restart();
   }
-
 }
 
 // VIBRATION
