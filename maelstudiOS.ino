@@ -108,29 +108,12 @@ void setup() {
     while (1) {}
   }
 
-  // Initialize camera
-  esp_err_t err = initCam();
-  if (err != ESP_OK) {
-    Serial.printf("Camera init failed with error 0x%x", err);
-    while (1) {}
-  }
-  esp_camera_deinit(); // Deinit to save power
-
   // Haptic
   pinMode(HAPTIC_PIN, OUTPUT);
 
   // RTC
   Wire.begin();
   rtc.begin();
-
-  // BMP280
-  bmp.begin(BMP_ADDRESS);
-  /* Default settings from datasheet. */
-  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
-                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
-                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
-                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
-                  Adafruit_BMP280::STANDBY_MS_1);   /* Standby time. */
 
   // ADC
   analogReadResolution(12);
@@ -228,6 +211,7 @@ void loop() {
   if (wakeUp) { // Turn on display after UI update
     digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
     wakeUp = false;
+    initBarometer();
   }
 
   if (digitalRead(TOUCH_INT_PIN) == LOW) lastActive = now;
@@ -236,6 +220,17 @@ void loop() {
     preferences.putBool("autoSleepFlag", true);
     ESP.restart();
   }
+}
+
+void initBarometer() {
+  // BMP280
+  bmp.begin(BMP_ADDRESS);
+  /* Default settings from datasheet. */
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
+                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
+                  Adafruit_BMP280::STANDBY_MS_1);   /* Standby time. */
 }
 
 // VIBRATION
