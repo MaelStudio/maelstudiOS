@@ -79,22 +79,6 @@ void setup() {
   pinMode(BACKLIGHT_PIN, OUTPUT);
   pinMode(TOUCH_INT_PIN, INPUT_PULLUP);
 
-  preferences.begin("config", false);
-
-  if (preferences.getBool("autoSleepFlag", false)) {
-    preferences.putBool("autoSleepFlag", false);
-    digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display backlight
-
-    // Enable wakeup on touch pin, GPIO 44 (falling edge)
-    gpio_wakeup_enable((gpio_num_t)TOUCH_INT_PIN, GPIO_INTR_LOW_LEVEL);
-    esp_sleep_enable_gpio_wakeup();
-    esp_light_sleep_start(); // ENTER LIGHT SLEEP
-
-    lastActive = millis();
-  }
-  
-  Serial.begin(115200);
-
   // Initialize display
   lv_init();
   lv_xiao_disp_init();
@@ -104,9 +88,34 @@ void setup() {
   // Initialize SD card
   pinMode(SD_CS_PIN, OUTPUT);
   if(!SD.begin(SD_CS_PIN)){
+    Serial.begin(115200);
     Serial.println("Card mount failed");
     while (1) {}
   }
+
+  // BMP280
+  bmp.begin(BMP_ADDRESS);
+  /* Default settings from datasheet. */
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
+                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
+                  Adafruit_BMP280::STANDBY_MS_1);   /* Standby time. */
+
+  preferences.begin("config", false);
+
+  if (preferences.getBool("autoSleepFlag", false)) {
+    preferences.putBool("autoSleepFlag", false);
+    digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display backlight
+    // Enable wakeup on touch pin, GPIO 44 (falling edge)
+    gpio_wakeup_enable((gpio_num_t)TOUCH_INT_PIN, GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+    esp_light_sleep_start(); // ENTER LIGHT SLEEP
+
+    lastActive = millis();
+  }
+  
+  Serial.begin(115200);
 
   // Haptic
   pinMode(HAPTIC_PIN, OUTPUT);
@@ -211,7 +220,6 @@ void loop() {
   if (wakeUp) { // Turn on display after UI update
     digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
     wakeUp = false;
-    initBarometer();
   }
 
   if (digitalRead(TOUCH_INT_PIN) == LOW) lastActive = now;
@@ -220,17 +228,6 @@ void loop() {
     preferences.putBool("autoSleepFlag", true);
     ESP.restart();
   }
-}
-
-void initBarometer() {
-  // BMP280
-  bmp.begin(BMP_ADDRESS);
-  /* Default settings from datasheet. */
-  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
-                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
-                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
-                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
-                  Adafruit_BMP280::STANDBY_MS_1);   /* Standby time. */
 }
 
 // VIBRATION
