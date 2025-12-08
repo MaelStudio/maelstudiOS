@@ -265,6 +265,7 @@ void action_open_app_camera(lv_event_t *e) {
 
 void action_take_photo(lv_event_t *e) {
   unsigned long start = millis();
+  lastActive = start;
   takingPhoto = true;
   vibrate(20);
 
