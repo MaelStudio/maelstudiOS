@@ -228,7 +228,6 @@ void loop() {
   if (digitalRead(TOUCH_INT_PIN) == LOW) lastActive = millis();
   
   if (millis() - lastActive >= AUTO_SLEEP) {
-    Serial.printf("Inactive for %i ms, going to sleep.\n");
     preferences.putBool("autoSleepFlag", true);
     ESP.restart();
   }
