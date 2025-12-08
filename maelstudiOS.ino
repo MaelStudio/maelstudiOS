@@ -147,69 +147,72 @@ void loop() {
   // Vibration
   updateVibration();
 
-  // Read current RTC time
-  rtc.getDate(&rtcDate);
-  rtc.getTime(&rtcTime);
-
-  // Keep track of millis offset inside the current second
-  static unsigned long millisAtLastTick = 0;
-  static int lastSecond = -1;
-  if (rtcTime.seconds != lastSecond) {
-    // New tick from RTC
-    lastSecond = rtcTime.seconds;
-    millisAtLastTick = now;
-  }
-  float secFraction = (now - millisAtLastTick) / 1000.0;
-  if (secFraction > 1.0) secFraction = 1.0;
-
-  // Update time and date labels
-  lv_label_set_text_fmt(objects.digital_time, "%02i:%02i", rtcTime.hours, rtcTime.minutes);
-  lv_label_set_text(objects.day_of_week, days[rtcDate.weekDay]);
-  lv_label_set_text_fmt(objects.date, "%02i", rtcDate.date);
-
-  // Update watch hands
-  int hour_angle = (rtcTime.hours % 12)*HOUR_ANGLE + rtcTime.minutes*HOUR_ANGLE/60.0 + rtcTime.seconds*HOUR_ANGLE/3600.0;
-  int minute_angle = rtcTime.minutes*MINUTE_ANGLE + rtcTime.seconds*MINUTE_ANGLE/60.0;
-  int second_angle = (rtcTime.seconds + secFraction)*SECOND_ANGLE;
-
-  lv_img_set_angle(objects.hour_hand, hour_angle);
-  lv_img_set_angle(objects.hour_hand_shadow, hour_angle);
-  lv_img_set_angle(objects.minute_hand, minute_angle);
-  lv_img_set_angle(objects.minute_hand_shadow, minute_angle);
-  lv_img_set_angle(objects.second_hand, second_angle);
-  lv_img_set_angle(objects.second_hand_shadow, second_angle);
-
-  lv_img_set_angle(objects.month_marker, (rtcDate.month-1)*MONTH_ANGLE);
-
-
-  // BMP280
-  float temperature = bmp.readTemperature(); // *C
-  float pressure = bmp.readPressure() / 100.0; // hPa
-  float altitude = bmp.readAltitude(SEA_LEVEL_HPA); // m
-  int angle = map(temperature, -20, 30, -1200, 1200); // Calculate dial hand angle
-  lv_img_set_angle(objects.temperature_hand, angle);
-  lv_img_set_angle(objects.temperature_hand_shadow, angle);
-  char buf[6];
-  sprintf(buf, "%.0f°", temperature);
-  lv_label_set_text(objects.temperature, buf);
-
-  // BATTERY DIAL
-  int level = batteryLevel();
-  lv_label_set_text_fmt(objects.battery_voltage, "%i%%", level);
-  angle = map(level, 0, 100, -1200, 1200);
-  lv_img_set_angle(objects.battery_hand, angle);
-  lv_img_set_angle(objects.battery_hand_shadow, angle);
-
-
   // APPS
-  if (activeApp == APP_CAMERA && !takingPhoto) {
-    camera_fb_t *fb = esp_camera_fb_get();
-    jpg2rgb565(fb->buf, fb->len, cam_buf, JPG_SCALE_NONE);
-    esp_camera_fb_return(fb); // Return camera buffer
+  switch(activeApp) {
+    case HOME: {
+      // Read current RTC time
+      rtc.getDate(&rtcDate);
+      rtc.getTime(&rtcTime);
 
-    // Update camera image in ui
-    lv_img_set_src(objects.camera_feed, &cam_img_dsc);
-    lv_obj_invalidate(objects.camera_feed);
+      // Keep track of millis offset inside the current second
+      static unsigned long millisAtLastTick = 0;
+      static int lastSecond = -1;
+      if (rtcTime.seconds != lastSecond) {
+        // New tick from RTC
+        lastSecond = rtcTime.seconds;
+        millisAtLastTick = now;
+      }
+      float secFraction = (now - millisAtLastTick) / 1000.0;
+      if (secFraction > 1.0) secFraction = 1.0;
+
+      // Update time and date labels
+      lv_label_set_text_fmt(objects.digital_time, "%02i:%02i", rtcTime.hours, rtcTime.minutes);
+      lv_label_set_text(objects.day_of_week, days[rtcDate.weekDay]);
+      lv_label_set_text_fmt(objects.date, "%02i", rtcDate.date);
+
+      // Update watch hands
+      int hour_angle = (rtcTime.hours % 12)*HOUR_ANGLE + rtcTime.minutes*HOUR_ANGLE/60.0 + rtcTime.seconds*HOUR_ANGLE/3600.0;
+      int minute_angle = rtcTime.minutes*MINUTE_ANGLE + rtcTime.seconds*MINUTE_ANGLE/60.0;
+      int second_angle = (rtcTime.seconds + secFraction)*SECOND_ANGLE;
+
+      lv_img_set_angle(objects.hour_hand, hour_angle);
+      lv_img_set_angle(objects.hour_hand_shadow, hour_angle);
+      lv_img_set_angle(objects.minute_hand, minute_angle);
+      lv_img_set_angle(objects.minute_hand_shadow, minute_angle);
+      lv_img_set_angle(objects.second_hand, second_angle);
+      lv_img_set_angle(objects.second_hand_shadow, second_angle);
+      lv_img_set_angle(objects.month_marker, (rtcDate.month-1)*MONTH_ANGLE);
+
+      // BMP280
+      float temperature = bmp.readTemperature(); // *C
+      float pressure = bmp.readPressure() / 100.0; // hPa
+      float altitude = bmp.readAltitude(SEA_LEVEL_HPA); // m
+      int angle = map(temperature, -20, 30, -1200, 1200); // Calculate dial hand angle
+      lv_img_set_angle(objects.temperature_hand, angle);
+      lv_img_set_angle(objects.temperature_hand_shadow, angle);
+      char buf[6];
+      sprintf(buf, "%.0f°", temperature);
+      lv_label_set_text(objects.temperature, buf);
+
+      // BATTERY DIAL
+      int level = batteryLevel();
+      lv_label_set_text_fmt(objects.battery_voltage, "%i%%", level);
+      angle = map(level, 0, 100, -1200, 1200);
+      lv_img_set_angle(objects.battery_hand, angle);
+      lv_img_set_angle(objects.battery_hand_shadow, angle);
+      break;
+    }
+    case APP_CAMERA: {
+      if (takingPhoto) break;
+      camera_fb_t *fb = esp_camera_fb_get();
+      jpg2rgb565(fb->buf, fb->len, cam_buf, JPG_SCALE_NONE);
+      esp_camera_fb_return(fb); // Return camera buffer
+
+      // Update camera image in ui
+      lv_img_set_src(objects.camera_feed, &cam_img_dsc);
+      lv_obj_invalidate(objects.camera_feed);
+      break;
+    }
   }
 
   // Update UI
