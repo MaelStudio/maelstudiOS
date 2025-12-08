@@ -28,7 +28,6 @@ AppID activeApp = HOME;
 // Camera app
 uint8_t cam_buf[SCREEN_WIDTH * SCREEN_HEIGHT * 2];  // 2 bytes per pixel (RGB565)
 static lv_img_dsc_t cam_img_dsc;
-bool takingPhoto = false;
 
 // SD
 #define SD_CS_PIN D2
@@ -142,8 +141,6 @@ void setup() {
 }
 
 void loop() {
-  unsigned long now = millis();
-
   // Vibration
   updateVibration();
 
@@ -160,9 +157,9 @@ void loop() {
       if (rtcTime.seconds != lastSecond) {
         // New tick from RTC
         lastSecond = rtcTime.seconds;
-        millisAtLastTick = now;
+        millisAtLastTick = millis();
       }
-      float secFraction = (now - millisAtLastTick) / 1000.0;
+      float secFraction = (millis() - millisAtLastTick) / 1000.0;
       if (secFraction > 1.0) secFraction = 1.0;
 
       // Update time and date labels
@@ -203,7 +200,6 @@ void loop() {
       break;
     }
     case APP_CAMERA: {
-      if (takingPhoto) break;
       camera_fb_t *fb = esp_camera_fb_get();
       jpg2rgb565(fb->buf, fb->len, cam_buf, JPG_SCALE_NONE);
       esp_camera_fb_return(fb); // Return camera buffer
@@ -229,9 +225,10 @@ void loop() {
     wakeUp = false;
   }
 
-  if (digitalRead(TOUCH_INT_PIN) == LOW) lastActive = now;
+  if (digitalRead(TOUCH_INT_PIN) == LOW) lastActive = millis();
   
-  if (now - lastActive >= AUTO_SLEEP) {
+  if (millis() - lastActive >= AUTO_SLEEP) {
+    Serial.printf("Inactive for %i ms, going to sleep.\n");
     preferences.putBool("autoSleepFlag", true);
     ESP.restart();
   }
@@ -266,7 +263,6 @@ void action_open_app_camera(lv_event_t *e) {
 void action_take_photo(lv_event_t *e) {
   unsigned long start = millis();
   lastActive = start;
-  takingPhoto = true;
   vibrate(20);
 
   sensor_t * s = esp_camera_sensor_get();
@@ -299,8 +295,6 @@ void action_take_photo(lv_event_t *e) {
   
   s->set_framesize(s, FRAMESIZE_240X240);
   Serial.printf("Took photo %s in %i ms\n", filename, (millis() - start));
-
-  takingPhoto = false;
 }
 
 int batteryLevel(void) { // in percentage
