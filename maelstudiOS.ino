@@ -218,6 +218,10 @@ void loop() {
 
   // Auto sleep
   if (wakeUp) { // Turn on display after UI update
+    for(int i=0; i<4; i++) {
+      lv_timer_handler();
+      ui_tick();
+    }
     digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
     wakeUp = false;
   }
