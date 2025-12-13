@@ -9,3 +9,7 @@ Bibliothèque graphique utilisée: [LVGL](https://github.com/lvgl/lvgl) v8.4 ave
 ![](img/3.jpg)
 ![](img/1.jpg)
 ![](img/2.jpg)
+
+## Cadran
+
+![](img/watchface.png)
