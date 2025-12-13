@@ -258,6 +258,7 @@ void create_screen_home() {
             lv_obj_set_size(obj, LV_SIZE_CONTENT, 65);
             lv_imgbtn_set_src(obj, LV_IMGBTN_STATE_RELEASED, NULL, &img_cam_app_icon, NULL);
             lv_obj_add_event_cb(obj, action_open_app_camera, LV_EVENT_RELEASED, (void *)0);
+            lv_obj_clear_flag(obj, LV_OBJ_FLAG_CLICK_FOCUSABLE|LV_OBJ_FLAG_GESTURE_BUBBLE|LV_OBJ_FLAG_PRESS_LOCK|LV_OBJ_FLAG_SCROLLABLE|LV_OBJ_FLAG_SCROLL_CHAIN_HOR|LV_OBJ_FLAG_SCROLL_CHAIN_VER|LV_OBJ_FLAG_SCROLL_ELASTIC|LV_OBJ_FLAG_SCROLL_MOMENTUM|LV_OBJ_FLAG_SCROLL_WITH_ARROW|LV_OBJ_FLAG_SNAPPABLE);
             lv_obj_set_style_img_recolor(obj, lv_color_hex(0xff000000), LV_PART_MAIN | LV_STATE_PRESSED);
             lv_obj_set_style_img_recolor_opa(obj, 100, LV_PART_MAIN | LV_STATE_PRESSED);
         }
