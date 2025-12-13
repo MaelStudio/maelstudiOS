@@ -20,10 +20,11 @@
 
 // APPS
 enum AppID {
+  WATCH_FACE = -2,
   HOME = -1,
   APP_CAMERA = 0
 };
-AppID activeApp = HOME;
+AppID activeApp = WATCH_FACE;
 
 // Camera app
 uint8_t cam_buf[SCREEN_WIDTH * SCREEN_HEIGHT * 2];  // 2 bytes per pixel (RGB565)
@@ -73,6 +74,13 @@ bool wakeUp = true;
 
 // Preferences
 Preferences preferences;
+
+// Gesture control
+bool startedGesture = false;
+lv_coord_t touchX, touchY;
+lv_coord_t gestureStartX;
+lv_coord_t gestureStartY;
+#define GESTURE_SIZE 30
 
 void setup() {
   pinMode(BACKLIGHT_PIN, OUTPUT);
@@ -126,11 +134,6 @@ void setup() {
   // ADC
   analogReadResolution(12);
 
-  // Gesture control
-  lv_obj_add_event_cb(objects.watchface, watchfaceSwipe, LV_EVENT_GESTURE, NULL);
-  lv_obj_add_event_cb(objects.home, homeSwipe, LV_EVENT_GESTURE, NULL);
-  lv_obj_add_event_cb(objects.app_camera, appSwipe, LV_EVENT_GESTURE, NULL);
-
   // Camera APP
   cam_img_dsc.header.always_zero = 0;
   cam_img_dsc.header.w = SCREEN_WIDTH;
@@ -142,10 +145,14 @@ void setup() {
 
 void loop() {
   // Vibration
-  updateVibration();
+  vibrationTick();
+  
+  // Gesture control
+  gestureTick();
 
   // APPS
   switch(activeApp) {
+    case WATCH_FACE:
     case HOME: {
       // Read current RTC time
       rtc.getDate(&rtcDate);
@@ -217,6 +224,7 @@ void loop() {
 
   // Auto sleep
   if (wakeUp) { // Turn on display after UI update
+    // Tick UI for frame to settle
     for(int i=0; i<4; i++) {
       lv_timer_handler();
       ui_tick();
@@ -224,8 +232,6 @@ void loop() {
     digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
     wakeUp = false;
   }
-
-  if (digitalRead(TOUCH_INT_PIN) == LOW) lastActive = millis();
   
   if (millis() - lastActive >= AUTO_SLEEP) {
     preferences.putBool("autoSleepFlag", true);
@@ -233,13 +239,13 @@ void loop() {
   }
 }
 
-// VIBRATION
+// UTILS
 void vibrate(int duration = 10) {
   hapticStart = true;
   hapticDuration = duration;
 }
 
-void updateVibration() {
+void vibrationTick() {
   if (hapticStart) {
     digitalWrite(HAPTIC_PIN, HIGH);
     hapticStart = false;
@@ -252,14 +258,83 @@ void updateVibration() {
   }
 }
 
-// EVENT HANDLERS
+int batteryLevel(void) { // in percentage
+  int mVolts = 0;
+  for(int8_t i=0; i<NUM_ADC_SAMPLE; i++){
+    mVolts += analogReadMilliVolts(D0);
+  }
+  mVolts /= NUM_ADC_SAMPLE;
+  int level = map(mVolts, BATTERY_DEFICIT_VOL, BATTERY_FULL_VOL, 0, 100);
+  level = (level < 0) ? 0 : ((level > 100) ? 100 : level);
+  return level;
+}
+
+// NAVIGATING MENUS
+void gestureTick() {
+  if (!chsc6x_read_touch(&touchX, &touchY)) {
+    startedGesture = false;
+    return;
+  }
+
+  lastActive = millis();
+
+  if(!startedGesture) {
+    // Start new gesture
+    gestureStartX = touchX;
+    gestureStartY = touchY;
+    startedGesture = true;
+    return;
+  }
+
+  lv_coord_t deltaX = touchX - gestureStartX;
+  lv_coord_t deltaY = touchY - gestureStartY;
+  if(abs(deltaX) < GESTURE_SIZE && abs(deltaY) < GESTURE_SIZE) return;
+
+  // Horizontal gesture detected
+  if(abs(deltaX) > abs(deltaY)) {
+    if (deltaX < 0) {
+      // LEFT
+      if(activeApp == WATCH_FACE) {
+        loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300);
+        activeApp = HOME;
+      }
+    } else {
+      // RIGHT
+      if(activeApp == HOME) {
+        loadScreenAnim(SCREEN_ID_WATCHFACE, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300);
+        activeApp = WATCH_FACE;
+      }
+    }
+  // Vertical gesture detected
+  } else { 
+    if (deltaY < 0) {
+      // UP
+      if(activeApp == APP_CAMERA) {
+        esp_camera_deinit();
+        loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_TOP, 300);
+        activeApp = HOME;
+      }
+    } else {
+      // DOWN
+    }
+  }
+
+  // Start new gesture
+  gestureStartX = touchX;
+  gestureStartY = touchY;
+  startedGesture = true;
+}
+
 void action_open_app_camera(lv_event_t *e) {
+  if (activeApp != HOME) return;
   initCam();
   loadScreenAnim(SCREEN_ID_APP_CAMERA, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
   activeApp = APP_CAMERA;
 }
 
+// EVENT HANDLERS: APPS
 void action_take_photo(lv_event_t *e) {
+  if (activeApp != APP_CAMERA) return;
   unsigned long start = millis();
   lastActive = start;
   vibrate(20);
@@ -294,34 +369,4 @@ void action_take_photo(lv_event_t *e) {
   
   s->set_framesize(s, FRAMESIZE_240X240);
   Serial.printf("Took photo %s in %i ms\n", filename, (millis() - start));
-}
-
-int batteryLevel(void) { // in percentage
-  int mVolts = 0;
-  for(int8_t i=0; i<NUM_ADC_SAMPLE; i++){
-    mVolts += analogReadMilliVolts(D0);
-  }
-  mVolts /= NUM_ADC_SAMPLE;
-  int level = map(mVolts, BATTERY_DEFICIT_VOL, BATTERY_FULL_VOL, 0, 100);
-  level = (level < 0) ? 0 : ((level > 100) ? 100 : level);
-  return level;
-}
-
-void watchfaceSwipe(lv_event_t * e) {
-  lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-  if (dir == LV_DIR_LEFT) loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300);
-}
-
-void homeSwipe(lv_event_t * e) {
-  lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-  if (dir == LV_DIR_RIGHT) loadScreenAnim(SCREEN_ID_WATCHFACE, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300);
-}
-
-void appSwipe(lv_event_t * e) {
-  lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-  if (dir == LV_DIR_TOP) {
-    esp_camera_deinit();
-    loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_TOP, 300);
-    activeApp = HOME;
-  }
 }
