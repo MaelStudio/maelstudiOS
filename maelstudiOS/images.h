@@ -22,6 +22,13 @@ extern const lv_img_dsc_t img_top_bolt;
 extern const lv_img_dsc_t img_cam_app_icon;
 extern const lv_img_dsc_t img_shutter;
 extern const lv_img_dsc_t img_shutter_pressed;
+extern const lv_img_dsc_t img_laser_app_icon;
+extern const lv_img_dsc_t img_no_app_icon;
+extern const lv_img_dsc_t img_laser_toggle_on;
+extern const lv_img_dsc_t img_laser_toggle_off;
+extern const lv_img_dsc_t img_laser_icon_off;
+extern const lv_img_dsc_t img_laser_icon_on;
+extern const lv_img_dsc_t img_laser_title;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T
@@ -31,7 +38,7 @@ typedef struct _ext_img_desc_t {
 } ext_img_desc_t;
 #endif
 
-extern const ext_img_desc_t images[15];
+extern const ext_img_desc_t images[22];
 
 
 #ifdef __cplusplus

@@ -22,13 +22,18 @@
 enum AppID {
   WATCH_FACE = -2,
   HOME = -1,
-  APP_CAMERA = 0
+  APP_CAMERA = 0,
+  APP_LASER = 1
 };
 AppID activeApp = WATCH_FACE;
 
 // Camera app
 uint8_t cam_buf[SCREEN_WIDTH * SCREEN_HEIGHT * 2];  // 2 bytes per pixel (RGB565)
 static lv_img_dsc_t cam_img_dsc;
+
+// Laser app
+#define LASER_PIN 42
+bool laserState = false;
 
 // SD
 #define SD_CS_PIN D2
@@ -83,8 +88,13 @@ lv_coord_t gestureStartY;
 #define GESTURE_SIZE 30
 
 void setup() {
-  pinMode(BACKLIGHT_PIN, OUTPUT);
   pinMode(TOUCH_INT_PIN, INPUT_PULLUP);
+  pinMode(BACKLIGHT_PIN, OUTPUT);
+  pinMode(LASER_PIN, OUTPUT);
+  pinMode(HAPTIC_PIN, OUTPUT);
+
+  digitalWrite(LASER_PIN, LOW);
+  digitalWrite(HAPTIC_PIN, LOW);
 
   // Initialize display
   lv_init();
@@ -123,9 +133,6 @@ void setup() {
   }
   
   Serial.begin(115200);
-
-  // Haptic
-  pinMode(HAPTIC_PIN, OUTPUT);
 
   // RTC
   Wire.begin();
@@ -240,7 +247,7 @@ void loop() {
 }
 
 // UTILS
-void vibrate(int duration = 10) {
+void vibrate(int duration = 20) {
   hapticStart = true;
   hapticDuration = duration;
 }
@@ -270,11 +277,27 @@ int batteryLevel(void) { // in percentage
 }
 
 // NAVIGATING MENUS
+void closeApp() {
+  switch(activeApp) {
+    case APP_CAMERA: {
+      esp_camera_deinit();
+      break;
+    }
+    case APP_LASER: {
+      digitalWrite(LASER_PIN, LOW);
+      laserState = false;
+      lv_obj_clear_state(objects.laser_toggle, LV_STATE_CHECKED);
+      lv_obj_add_flag(objects.laser_icon_on, LV_OBJ_FLAG_HIDDEN);
+    }
+  }
+}
+
 void gestureTick() {
   if (!chsc6x_read_touch(&touchX, &touchY)) {
     startedGesture = false;
     return;
   }
+  if (touchX <= 1 || touchY <= 1) return; // Ignore invalid coordinates
 
   lastActive = millis();
 
@@ -309,8 +332,8 @@ void gestureTick() {
   } else { 
     if (deltaY < 0) {
       // UP
-      if(activeApp == APP_CAMERA) {
-        esp_camera_deinit();
+      if(activeApp != WATCH_FACE && activeApp != HOME) {
+        closeApp();
         loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_TOP, 300);
         activeApp = HOME;
       }
@@ -322,7 +345,6 @@ void gestureTick() {
   // Start new gesture
   gestureStartX = touchX;
   gestureStartY = touchY;
-  startedGesture = true;
 }
 
 void action_open_app_camera(lv_event_t *e) {
@@ -332,7 +354,27 @@ void action_open_app_camera(lv_event_t *e) {
   activeApp = APP_CAMERA;
 }
 
+void action_open_app_laser(lv_event_t *e) {
+  if (activeApp != HOME) return;
+  loadScreenAnim(SCREEN_ID_APP_LASER, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
+  activeApp = APP_LASER;
+}
+
 // EVENT HANDLERS: APPS
+void action_toggle_laser(lv_event_t *e) {
+  if (activeApp != APP_LASER) return;
+  laserState = !laserState;
+  if (laserState) {
+    lv_obj_add_state(objects.laser_toggle, LV_STATE_CHECKED);
+    lv_obj_clear_flag(objects.laser_icon_on, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_clear_state(objects.laser_toggle, LV_STATE_CHECKED);
+    lv_obj_add_flag(objects.laser_icon_on, LV_OBJ_FLAG_HIDDEN);
+  }
+  digitalWrite(LASER_PIN, laserState);
+  vibrate(20);
+}
+
 void action_take_photo(lv_event_t *e) {
   if (activeApp != APP_CAMERA) return;
   unsigned long start = millis();
