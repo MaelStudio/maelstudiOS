@@ -6,9 +6,9 @@ Bibliothèque graphique utilisée: [LVGL](https://github.com/lvgl/lvgl) v8.4 ave
 
 ## Photos
 
-![](img/3.jpg)
 ![](img/1.jpg)
 ![](img/2.jpg)
+![](img/3.jpg)
 
 ## Cadran
 
