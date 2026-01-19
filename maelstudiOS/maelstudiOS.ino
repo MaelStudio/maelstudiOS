@@ -17,13 +17,15 @@
 #undef sensor_t
 
 #include <Adafruit_BMP280.h>
+#include <Adafruit_AHT10.h>
 
 // APPS
 enum AppID {
   WATCH_FACE = -2,
   HOME = -1,
   APP_CAMERA = 0,
-  APP_LASER = 1
+  APP_LASER = 1,
+  APP_WEATHER = 2
 };
 AppID activeApp = WATCH_FACE;
 
@@ -56,11 +58,15 @@ I2C_BM8563 rtc(I2C_BM8563_DEFAULT_ADDRESS, Wire);
 I2C_BM8563_DateTypeDef rtcDate;
 I2C_BM8563_TimeTypeDef rtcTime;
 const char* days[] = {"Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"};
+const char* months[] = {"janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre", "decembre"};
 
 // BMP280
-#define SEA_LEVEL_HPA 1005.00
+#define SEA_LEVEL_HPA 1010.10
 #define BMP_ADDRESS 0x77
 Adafruit_BMP280 bmp;
+
+// AHT20
+Adafruit_AHT10 aht;
 
 // BATTERY
 #define NUM_ADC_SAMPLE 20           // Sampling frequency
@@ -119,6 +125,9 @@ void setup() {
                   Adafruit_BMP280::FILTER_X16,      /* Filtering. */
                   Adafruit_BMP280::STANDBY_MS_1);   /* Standby time. */
 
+  // AHT20
+  aht.begin();
+
   preferences.begin("config", false);
 
   if (preferences.getBool("autoSleepFlag", false)) {
@@ -148,6 +157,9 @@ void setup() {
   cam_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
   cam_img_dsc.data_size = sizeof(cam_buf);
   cam_img_dsc.data = cam_buf;
+
+  // Laser APP
+  lv_obj_add_flag(objects.laser_icon_on, LV_OBJ_FLAG_HIDDEN);
 }
 
 void loop() {
@@ -194,10 +206,8 @@ void loop() {
       lv_img_set_angle(objects.second_hand_shadow, second_angle);
       lv_img_set_angle(objects.month_marker, (rtcDate.month-1)*MONTH_ANGLE);
 
-      // BMP280
+      // Temperature
       float temperature = bmp.readTemperature(); // *C
-      float pressure = bmp.readPressure() / 100.0; // hPa
-      float altitude = bmp.readAltitude(SEA_LEVEL_HPA); // m
       int angle = map(temperature, -20, 30, -1200, 1200); // Calculate dial hand angle
       lv_img_set_angle(objects.temperature_hand, angle);
       lv_img_set_angle(objects.temperature_hand_shadow, angle);
@@ -221,6 +231,42 @@ void loop() {
       // Update camera image in ui
       lv_img_set_src(objects.camera_feed, &cam_img_dsc);
       lv_obj_invalidate(objects.camera_feed);
+      break;
+    }
+    case APP_WEATHER: {
+      rtc.getDate(&rtcDate);
+      rtc.getTime(&rtcTime);
+      
+      // Update background
+      if (rtcTime.hours > 6 && rtcTime.hours < 18) {
+        // DAY
+        lv_obj_add_flag(objects.weather_app_bg_night, LV_OBJ_FLAG_HIDDEN);
+      } else {
+        // NIGHT
+        lv_obj_clear_flag(objects.weather_app_bg_night, LV_OBJ_FLAG_HIDDEN);
+      }
+
+      // Update time and date labels
+      lv_label_set_text_fmt(objects.time_weather, "%02i:%02i", rtcTime.hours, rtcTime.minutes);
+      lv_label_set_text_fmt(objects.date_weather, "%s. %i %s", days[rtcDate.weekDay], rtcDate.date, months[rtcDate.month-1]);
+
+      // AHT20
+      sensors_event_t humidity, temp;
+      aht.getEvent(&humidity, &temp);
+
+      // Temperature
+      char buf[7];
+      sprintf(buf, "%.0f°C", temp.temperature);
+      lv_label_set_text(objects.temperature_weather, buf);
+
+      // Humidity
+      sprintf(buf, "%.0f %%", humidity.relative_humidity);
+      lv_label_set_text(objects.humidity, buf);
+
+      // Altitude
+      float altitude = bmp.readAltitude(SEA_LEVEL_HPA); // m
+      sprintf(buf, "%.0f m", altitude);
+      lv_label_set_text(objects.altitude, buf);
       break;
     }
   }
@@ -358,6 +404,12 @@ void action_open_app_laser(lv_event_t *e) {
   if (activeApp != HOME) return;
   loadScreenAnim(SCREEN_ID_APP_LASER, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
   activeApp = APP_LASER;
+}
+
+void action_open_app_weather(lv_event_t *e) {
+  if (activeApp != HOME) return;
+  loadScreenAnim(SCREEN_ID_APP_WEATHER, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
+  activeApp = APP_WEATHER;
 }
 
 // EVENT HANDLERS: APPS

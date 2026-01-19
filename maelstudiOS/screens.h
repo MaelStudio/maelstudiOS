@@ -12,6 +12,7 @@ typedef struct _objects_t {
     lv_obj_t *home;
     lv_obj_t *app_camera;
     lv_obj_t *app_laser;
+    lv_obj_t *app_weather;
     lv_obj_t *bg;
     lv_obj_t *digital_time;
     lv_obj_t *battery_voltage;
@@ -32,16 +33,23 @@ typedef struct _objects_t {
     lv_obj_t *top_bolt;
     lv_obj_t *camera_app_icon;
     lv_obj_t *laser_app_icon;
-    lv_obj_t *no_app_icon_0;
-    lv_obj_t *no_app_icon_1;
-    lv_obj_t *no_app_icon_2;
-    lv_obj_t *no_app_icon_3;
-    lv_obj_t *no_app_icon_4;
+    lv_obj_t *weather_app_icon;
+    lv_obj_t *photos_app_icon;
+    lv_obj_t *calculator_app_icon;
+    lv_obj_t *timer_app_icon;
+    lv_obj_t *settings_app_icon;
     lv_obj_t *camera_feed;
     lv_obj_t *shutter;
     lv_obj_t *laser_toggle;
     lv_obj_t *laser_icon_on;
     lv_obj_t *laser_icon_off;
+    lv_obj_t *weather_app_bg;
+    lv_obj_t *weather_app_bg_night;
+    lv_obj_t *temperature_weather;
+    lv_obj_t *humidity;
+    lv_obj_t *altitude;
+    lv_obj_t *time_weather;
+    lv_obj_t *date_weather;
 } objects_t;
 
 extern objects_t objects;
@@ -51,6 +59,7 @@ enum ScreensEnum {
     SCREEN_ID_HOME = 2,
     SCREEN_ID_APP_CAMERA = 3,
     SCREEN_ID_APP_LASER = 4,
+    SCREEN_ID_APP_WEATHER = 5,
 };
 
 void create_screen_watchface();
@@ -64,6 +73,9 @@ void tick_screen_app_camera();
 
 void create_screen_app_laser();
 void tick_screen_app_laser();
+
+void create_screen_app_weather();
+void tick_screen_app_weather();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

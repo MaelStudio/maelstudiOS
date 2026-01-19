@@ -29,6 +29,13 @@ extern const lv_img_dsc_t img_laser_toggle_off;
 extern const lv_img_dsc_t img_laser_icon_off;
 extern const lv_img_dsc_t img_laser_icon_on;
 extern const lv_img_dsc_t img_laser_title;
+extern const lv_img_dsc_t img_weather_app_icon;
+extern const lv_img_dsc_t img_calculator_app_icon;
+extern const lv_img_dsc_t img_photos_app_icon;
+extern const lv_img_dsc_t img_settings_app_icon;
+extern const lv_img_dsc_t img_timer_app_icon;
+extern const lv_img_dsc_t img_weather_app_bg;
+extern const lv_img_dsc_t img_weather_app_bg_night;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T
@@ -38,7 +45,7 @@ typedef struct _ext_img_desc_t {
 } ext_img_desc_t;
 #endif
 
-extern const ext_img_desc_t images[22];
+extern const ext_img_desc_t images[29];
 
 
 #ifdef __cplusplus

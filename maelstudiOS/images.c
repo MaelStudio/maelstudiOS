@@ -1,6 +1,6 @@
 #include "images.h"
 
-const ext_img_desc_t images[22] = {
+const ext_img_desc_t images[29] = {
     { "camera", &img_camera },
     { "watchface", &img_watchface },
     { "hour_hand", &img_hour_hand },
@@ -23,4 +23,11 @@ const ext_img_desc_t images[22] = {
     { "laser_icon_off", &img_laser_icon_off },
     { "laser_icon_on", &img_laser_icon_on },
     { "laser_title", &img_laser_title },
+    { "weather_app_icon", &img_weather_app_icon },
+    { "calculator_app_icon", &img_calculator_app_icon },
+    { "photos_app_icon", &img_photos_app_icon },
+    { "settings_app_icon", &img_settings_app_icon },
+    { "timer_app_icon", &img_timer_app_icon },
+    { "weather_app_bg", &img_weather_app_bg },
+    { "weather_app_bg_night", &img_weather_app_bg_night },
 };
