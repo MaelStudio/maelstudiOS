@@ -36,6 +36,10 @@ extern const lv_img_dsc_t img_settings_app_icon;
 extern const lv_img_dsc_t img_timer_app_icon;
 extern const lv_img_dsc_t img_weather_app_bg;
 extern const lv_img_dsc_t img_weather_app_bg_night;
+extern const lv_img_dsc_t img_trash;
+extern const lv_img_dsc_t img_arrow_r;
+extern const lv_img_dsc_t img_arrow_l;
+extern const lv_img_dsc_t img_photo_loading;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T
@@ -45,7 +49,7 @@ typedef struct _ext_img_desc_t {
 } ext_img_desc_t;
 #endif
 
-extern const ext_img_desc_t images[29];
+extern const ext_img_desc_t images[33];
 
 
 #ifdef __cplusplus

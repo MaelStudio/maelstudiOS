@@ -13,6 +13,7 @@ typedef struct _objects_t {
     lv_obj_t *app_camera;
     lv_obj_t *app_laser;
     lv_obj_t *app_weather;
+    lv_obj_t *app_photos;
     lv_obj_t *bg;
     lv_obj_t *digital_time;
     lv_obj_t *battery_voltage;
@@ -50,6 +51,24 @@ typedef struct _objects_t {
     lv_obj_t *altitude;
     lv_obj_t *time_weather;
     lv_obj_t *date_weather;
+    lv_obj_t *photo;
+    lv_obj_t *right_arrow;
+    lv_obj_t *left_arrow;
+    lv_obj_t *trash;
+    lv_obj_t *delete_button;
+    lv_obj_t *photo_index;
+    lv_obj_t *photo_size;
+    lv_obj_t *photo_date_1;
+    lv_obj_t *photo_date_2;
+    lv_obj_t *photo_date_3;
+    lv_obj_t *photo_date_4;
+    lv_obj_t *photo_date;
+    lv_obj_t *confirm_delete_box;
+    lv_obj_t *confirm_delete_filename;
+    lv_obj_t *obj0;
+    lv_obj_t *obj1;
+    lv_obj_t *confirm_delete;
+    lv_obj_t *cancel_delete;
 } objects_t;
 
 extern objects_t objects;
@@ -60,6 +79,7 @@ enum ScreensEnum {
     SCREEN_ID_APP_CAMERA = 3,
     SCREEN_ID_APP_LASER = 4,
     SCREEN_ID_APP_WEATHER = 5,
+    SCREEN_ID_APP_PHOTOS = 6,
 };
 
 void create_screen_watchface();
@@ -76,6 +96,9 @@ void tick_screen_app_laser();
 
 void create_screen_app_weather();
 void tick_screen_app_weather();
+
+void create_screen_app_photos();
+void tick_screen_app_photos();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

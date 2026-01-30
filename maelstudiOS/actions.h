@@ -12,6 +12,10 @@ extern void action_take_photo(lv_event_t * e);
 extern void action_open_app_laser(lv_event_t * e);
 extern void action_toggle_laser(lv_event_t * e);
 extern void action_open_app_weather(lv_event_t * e);
+extern void action_open_app_photos(lv_event_t * e);
+extern void action_delete_photo(lv_event_t * e);
+extern void action_delete_photo_yes(lv_event_t * e);
+extern void action_delete_photo_no(lv_event_t * e);
 
 
 #ifdef __cplusplus

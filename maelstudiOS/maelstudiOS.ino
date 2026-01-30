@@ -6,6 +6,7 @@
 #include "I2C_BM8563.h"
 #include "ui.h"
 #include "actions.h"
+#include "images.h"
 #include "driver/gpio.h"
 #include <esp_camera.h>
 #include "SD.h"
@@ -21,11 +22,12 @@
 
 // APPS
 enum AppID {
-  WATCH_FACE = -2,
-  HOME = -1,
-  APP_CAMERA = 0,
-  APP_LASER = 1,
-  APP_WEATHER = 2
+  WATCH_FACE,
+  HOME,
+  APP_CAMERA,
+  APP_LASER,
+  APP_WEATHER,
+  APP_PHOTOS
 };
 AppID activeApp = WATCH_FACE;
 
@@ -37,8 +39,23 @@ static lv_img_dsc_t cam_img_dsc;
 #define LASER_PIN 42
 bool laserState = false;
 
+// Photos app
+#define PHOTO_DIR "/img/"
+#define PHOTO_LIST_FILE "/photos.txt"
+#define PHOTO_LIST_FILE_TMP "/photos.tmp" // used while deleting photo
+#define MAX_PHOTOS 500
+uint16_t photoCount = 0;
+int currentPhoto = 0;
+uint8_t photo_buf[200 * 150 * 2];  // 2 bytes per pixel (RGB565)
+static lv_img_dsc_t photo_img_dsc;
+bool loadFirstPhoto = false;
+unsigned long firstPhotoLoadTime = 0;
+bool showingDeletePhotoDialog = false;
+
 // SD
 #define SD_CS_PIN D2
+#define FILENAME_LEN 32
+char photoList[MAX_PHOTOS][FILENAME_LEN];
 
 // Haptic
 #define HAPTIC_PIN 41
@@ -52,6 +69,11 @@ unsigned long hapticEnd = 0;
 int hapticDuration = 0;
 bool hapticStart = false;
 bool hapticActive = false;
+void vibrate(int duration = 30) {
+  digitalWrite(HAPTIC_PIN, HIGH);
+  delay(duration);
+  digitalWrite(HAPTIC_PIN, LOW);
+}
 
 // RTC
 I2C_BM8563 rtc(I2C_BM8563_DEFAULT_ADDRESS, Wire);
@@ -157,6 +179,16 @@ void setup() {
   cam_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
   cam_img_dsc.data_size = sizeof(cam_buf);
   cam_img_dsc.data = cam_buf;
+
+  // Photos APP
+  photo_img_dsc.header.always_zero = 0;
+  photo_img_dsc.header.w = 200;
+  photo_img_dsc.header.h = 150;
+  photo_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+  photo_img_dsc.data_size = sizeof(photo_buf);
+  photo_img_dsc.data = photo_buf;
+
+  loadPhotoListFromSD();
 
   // Laser APP
   lv_obj_add_flag(objects.laser_icon_on, LV_OBJ_FLAG_HIDDEN);
@@ -269,6 +301,44 @@ void loop() {
       lv_label_set_text(objects.altitude, buf);
       break;
     }
+    case APP_PHOTOS: {
+      if (loadFirstPhoto) {
+        if (millis() > firstPhotoLoadTime) {
+          currentPhoto = photoCount-1;
+          while (photoCount && !loadPhoto(currentPhoto)) {
+            currentPhoto = photoCount-1;
+          }
+          if (photoCount) lv_obj_clear_flag(objects.trash, LV_OBJ_FLAG_HIDDEN);
+          loadFirstPhoto = false;
+        }
+        break;
+      }
+
+      static unsigned long lastTap = 0;
+      if(!showingDeletePhotoDialog && chsc6x_read_touch(&touchX, &touchY) && millis()-lastTap >= 100) {
+        if (touchX > 60 && touchX < SCREEN_WIDTH-60) break;
+        
+        if (touchX <= 60) {
+          currentPhoto -= 1;
+          if (currentPhoto < 0) currentPhoto = photoCount-1;
+        } else {
+          currentPhoto += 1;
+          if (currentPhoto > photoCount-1) currentPhoto = 0;
+        }
+        vibrate();
+        while (photoCount && !loadPhoto(currentPhoto)) {
+          if (touchX <= 60) {
+            currentPhoto -= 1;
+            if (currentPhoto < 0) currentPhoto = photoCount-1;
+          } else {
+            // next photo has been pushed back to currentPhoto index
+            if (currentPhoto > photoCount-1) currentPhoto = 0;
+          }
+        }
+        lastTap = millis();
+      }
+      break;
+    }
   }
 
   // Update UI
@@ -290,10 +360,12 @@ void loop() {
     preferences.putBool("autoSleepFlag", true);
     ESP.restart();
   }
+
+  //Serial.printf("Free heap: %d bytes\n", ESP.getFreeHeap());
 }
 
 // UTILS
-void vibrate(int duration = 20) {
+void vibrateAsync(int duration = 20) {
   hapticStart = true;
   hapticDuration = duration;
 }
@@ -322,6 +394,190 @@ int batteryLevel(void) { // in percentage
   return level;
 }
 
+// Photos APP
+bool scanDirForPhotos(const char *dirname) {
+  // Scan SD
+  File dir = SD.open(dirname);
+  if (!dir) return false;
+
+  photoCount = 0;
+  File file;
+  while ((file = dir.openNextFile()) && photoCount < MAX_PHOTOS) {
+    if (file.isDirectory()) {
+      file.close();
+      continue;
+    }
+    const char *name = file.name();
+    const char *ext = strrchr(name, '.');
+    // Only .jpg / .JPG
+    if (ext && strcasecmp(ext, ".jpg") == 0) {
+      strncpy(photoList[photoCount], name, FILENAME_LEN - 1);
+      photoList[photoCount][FILENAME_LEN - 1] = '\0';
+      photoCount++;
+    }
+    file.close();
+  }
+  dir.close();
+
+  // Sort photos by name
+  for (uint16_t i = 0; i < photoCount - 1; i++) {
+    for (uint16_t j = i + 1; j < photoCount; j++) {
+      if (strcmp(photoList[i], photoList[j]) > 0) {
+        char tmp[FILENAME_LEN];
+        strcpy(tmp, photoList[i]);
+        strcpy(photoList[i], photoList[j]);
+        strcpy(photoList[j], tmp);
+      }
+    }
+  }
+
+  // Store list in txt file
+  File f = SD.open(PHOTO_LIST_FILE, FILE_WRITE);
+  if (!f) return false;
+
+  for (int i = 0; i < photoCount; i++) {
+    f.println(photoList[i]);
+  }
+
+  f.close();
+  return true;
+}
+
+void loadPhotoListFromSD() {
+  photoCount = 0;
+
+  File f = SD.open(PHOTO_LIST_FILE, FILE_READ);
+  if (!f) return;
+
+  char line[FILENAME_LEN];
+  while (f.available() && photoCount < MAX_PHOTOS) {
+    size_t len = f.readBytesUntil('\n', line, FILENAME_LEN - 1);
+    if (len == 0) continue;
+    if (line[len - 1] == '\r') len--; // Remove CR if file uses \r\n
+    line[len] = '\0';
+
+    strcpy(photoList[photoCount], line);
+    photoCount++;
+  }
+  f.close();
+}
+
+bool removePhotoFromList(int idx) { 
+  File in = SD.open(PHOTO_LIST_FILE, FILE_READ);
+  if (!in) return false;
+
+  File out = SD.open(PHOTO_LIST_FILE_TMP, FILE_WRITE);
+  if (!out) {
+    in.close();
+    return false;
+  }
+
+  char line[FILENAME_LEN];
+  bool removed = false;
+
+  while (in.available()) {
+    size_t len = in.readBytesUntil('\n', line, sizeof(line) - 1);
+    if (len == 0) continue;
+    if (line[len - 1] == '\r') len--; // Remove CR if file uses \r\n
+    line[len] = '\0';
+
+    if (strcmp(line, photoList[idx]) == 0) {
+      removed = true; // skip this line
+    } else if (strlen(line) > 0) {
+      out.println(line);
+    }
+  }
+
+  in.close();
+  out.close();
+
+  SD.remove(PHOTO_LIST_FILE);
+  SD.rename(PHOTO_LIST_FILE_TMP, PHOTO_LIST_FILE);
+
+  for (int i = idx; i < photoCount - 1; i++) {
+    strcpy(photoList[i], photoList[i + 1]);
+  }
+  photoCount--;
+
+  return removed;
+}
+
+void appendPhotoToList(const char* filename) {
+  File f = SD.open(PHOTO_LIST_FILE, FILE_APPEND);
+  if (!f) return;
+  f.println(filename);
+  f.close();
+
+  if (photoCount < MAX_PHOTOS) {
+    strncpy(photoList[photoCount], filename, FILENAME_LEN-1); // skip '/'
+    photoList[photoCount][FILENAME_LEN-1] = '\0';
+    photoCount++;
+  }
+}
+
+bool loadJpegFromSD(const char *path, uint32_t *outSize) {
+  File file = SD.open(path, FILE_READ);
+  if (!file) return false;
+
+  uint32_t jpgSize = file.size();
+  if (outSize) *outSize = jpgSize;
+  
+  uint8_t *jpgBuf = (uint8_t *)malloc(jpgSize);
+  if (!jpgBuf) {
+    file.close();
+    return false;
+  }
+
+  file.read(jpgBuf, jpgSize);
+  file.close();
+
+  bool ok = jpg2rgb565(jpgBuf, jpgSize, photo_buf, JPG_SCALE_8X);
+
+  free(jpgBuf);
+  return ok;
+}
+
+bool loadPhoto(int index) {
+  char path[FILENAME_LEN];
+  snprintf(path, sizeof(path), "%s%s", PHOTO_DIR, photoList[index]);
+
+  uint32_t photoSize;
+  if (loadJpegFromSD(path, &photoSize)) {
+    lv_img_set_src(objects.photo, &photo_img_dsc);
+    lv_obj_invalidate(objects.photo);
+    
+    // Photo index
+    lv_label_set_text_fmt(objects.photo_index, "%d / %d", index+1, photoCount);
+
+    // Timestamp
+    int year, month, day, hour, minute, second;
+    if (sscanf(photoList[index], "%4d-%2d-%2d_%2d-%2d-%2d.jpg", &year, &month, &day, &hour, &minute, &second) == 6) { // YYYY-MM-DD_HH-MM-SS.jpg
+      lv_label_set_text_fmt(objects.photo_date, "%02d . %02d . %04d  %02d:%02d", day, month, year, hour, minute);
+      lv_label_set_text_fmt(objects.photo_date_1, "%02d . %02d . %04d  %02d:%02d", day, month, year, hour, minute);
+      lv_label_set_text_fmt(objects.photo_date_2, "%02d . %02d . %04d  %02d:%02d", day, month, year, hour, minute);
+      lv_label_set_text_fmt(objects.photo_date_3, "%02d . %02d . %04d  %02d:%02d", day, month, year, hour, minute);
+      lv_label_set_text_fmt(objects.photo_date_4, "%02d . %02d . %04d  %02d:%02d", day, month, year, hour, minute);
+    } else {
+      // Show filename
+      //lv_label_set_text(objects.photo_date, photoList[index]);
+    }
+    
+    // File size
+    if (photoSize < 1024) {
+      lv_label_set_text_fmt(objects.photo_size, "%lu B", photoSize);
+    } else if (photoSize < 1024 * 1024) {
+      lv_label_set_text_fmt(objects.photo_size, "%lu kB", photoSize / 1024);
+    } else {
+      lv_label_set_text_fmt(objects.photo_size, "%lu MB", photoSize / (1024*1024));
+    }
+
+    return true;
+  }
+  
+  removePhotoFromList(index);
+  return false;
+}
+
 // NAVIGATING MENUS
 void closeApp() {
   switch(activeApp) {
@@ -334,6 +590,7 @@ void closeApp() {
       laserState = false;
       lv_obj_clear_state(objects.laser_toggle, LV_STATE_CHECKED);
       lv_obj_add_flag(objects.laser_icon_on, LV_OBJ_FLAG_HIDDEN);
+      break;
     }
   }
 }
@@ -412,6 +669,27 @@ void action_open_app_weather(lv_event_t *e) {
   activeApp = APP_WEATHER;
 }
 
+void action_open_app_photos(lv_event_t *e) {
+  if (activeApp != HOME) return;
+  loadScreenAnim(SCREEN_ID_APP_PHOTOS, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
+  activeApp = APP_PHOTOS;
+
+  lv_obj_add_flag(objects.confirm_delete_box, LV_OBJ_FLAG_HIDDEN);
+  showingDeletePhotoDialog = false;
+
+  lv_obj_add_flag(objects.trash, LV_OBJ_FLAG_HIDDEN);
+  lv_img_set_src(objects.photo, &img_photo_loading);
+  lv_label_set_text(objects.photo_size, "");
+  lv_label_set_text(objects.photo_index, "");
+  lv_label_set_text(objects.photo_date, "");
+  lv_label_set_text(objects.photo_date_1, "");
+  lv_label_set_text(objects.photo_date_2, "");
+  lv_label_set_text(objects.photo_date_3, "");
+  lv_label_set_text(objects.photo_date_4, "");
+  loadFirstPhoto = true;
+  firstPhotoLoadTime = millis()+350;
+}
+
 // EVENT HANDLERS: APPS
 void action_toggle_laser(lv_event_t *e) {
   if (activeApp != APP_LASER) return;
@@ -424,14 +702,14 @@ void action_toggle_laser(lv_event_t *e) {
     lv_obj_add_flag(objects.laser_icon_on, LV_OBJ_FLAG_HIDDEN);
   }
   digitalWrite(LASER_PIN, laserState);
-  vibrate(20);
+  vibrate();
 }
 
 void action_take_photo(lv_event_t *e) {
   if (activeApp != APP_CAMERA) return;
   unsigned long start = millis();
   lastActive = start;
-  vibrate(20);
+  vibrate();
 
   sensor_t * s = esp_camera_sensor_get();
   s->set_framesize(s, FRAMESIZE_UXGA);
@@ -447,20 +725,77 @@ void action_take_photo(lv_event_t *e) {
   rtc.getDate(&rtcDate);
   rtc.getTime(&rtcTime);
 
-  char filename[32];
+  char filename[FILENAME_LEN];
   snprintf(filename, sizeof(filename),
-           "/%04d-%02d-%02d_%02d-%02d-%02d.jpg",
+           "%04d-%02d-%02d_%02d-%02d-%02d.jpg",
            rtcDate.year, rtcDate.month, rtcDate.date,
-           rtcTime.hours, rtcTime.minutes, rtcTime.seconds);
-
-  File file = SD.open(filename, FILE_WRITE);
-  if (!file) return;
+           rtcTime.hours, rtcTime.minutes, rtcTime.seconds); // YYYY-MM-DD_HH-MM-SS.jpg
   
+  char filenameDir[FILENAME_LEN];
+  snprintf(filenameDir, sizeof(filenameDir), "%s%s", PHOTO_DIR, filename);
+
+  File file = SD.open(filenameDir, FILE_WRITE);
+  if (!file) return;
   file.write(fb->buf, fb->len);
   file.close();
-  
+
   esp_camera_fb_return(fb);
-  
   s->set_framesize(s, FRAMESIZE_240X240);
-  Serial.printf("Took photo %s in %i ms\n", filename, (millis() - start));
+  appendPhotoToList(filename);
+  Serial.printf("Took photo %s in %i ms\n", filenameDir, (millis() - start));
+  vibrate();
+}
+
+// Photos APP
+void action_delete_photo(lv_event_t *e) {
+  if (activeApp != APP_PHOTOS) return;
+  if (showingDeletePhotoDialog) return;
+  if (!photoCount) return;
+  
+  lv_label_set_text(objects.confirm_delete_filename, photoList[currentPhoto]);
+  showingDeletePhotoDialog = true;
+  lv_obj_clear_flag(objects.confirm_delete_box, LV_OBJ_FLAG_HIDDEN);
+  vibrate();
+}
+
+void action_delete_photo_no(lv_event_t *e) {
+  if (activeApp != APP_PHOTOS) return;
+
+  showingDeletePhotoDialog = false;
+  lv_obj_add_flag(objects.confirm_delete_box, LV_OBJ_FLAG_HIDDEN);
+  vibrate();
+}
+
+void action_delete_photo_yes(lv_event_t *e) {
+  if (activeApp != APP_PHOTOS) return;
+  vibrate();
+
+  char path[FILENAME_LEN];
+  snprintf(path, sizeof(path), "%s%s", PHOTO_DIR, photoList[currentPhoto]);
+
+  SD.remove(path);
+  removePhotoFromList(currentPhoto);
+  if (currentPhoto > 0) {
+    currentPhoto -= 1;
+  }
+  
+  while (photoCount && !loadPhoto(currentPhoto)) {
+    if (currentPhoto > 0) {
+      currentPhoto -= 1;
+    }
+  }
+
+  if (!photoCount) {
+    lv_img_set_src(objects.photo, &img_photo_loading);
+    lv_label_set_text(objects.photo_size, "");
+    lv_label_set_text(objects.photo_index, "");
+    lv_label_set_text(objects.photo_date, "");
+    lv_label_set_text(objects.photo_date_1, "");
+    lv_label_set_text(objects.photo_date_2, "");
+    lv_label_set_text(objects.photo_date_3, "");
+    lv_label_set_text(objects.photo_date_4, "");
+  }
+
+  showingDeletePhotoDialog = false;
+  lv_obj_add_flag(objects.confirm_delete_box, LV_OBJ_FLAG_HIDDEN);
 }
