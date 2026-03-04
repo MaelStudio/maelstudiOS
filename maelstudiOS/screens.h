@@ -14,6 +14,7 @@ typedef struct _objects_t {
     lv_obj_t *app_laser;
     lv_obj_t *app_weather;
     lv_obj_t *app_photos;
+    lv_obj_t *app_timer;
     lv_obj_t *bg;
     lv_obj_t *digital_time;
     lv_obj_t *battery_voltage;
@@ -69,6 +70,46 @@ typedef struct _objects_t {
     lv_obj_t *obj1;
     lv_obj_t *confirm_delete;
     lv_obj_t *cancel_delete;
+    lv_obj_t *timer_set_screen;
+    lv_obj_t *time_timer_app;
+    lv_obj_t *timer_title;
+    lv_obj_t *timer_set_hours;
+    lv_obj_t *timer_set_minutes;
+    lv_obj_t *timer_set_seconds;
+    lv_obj_t *h;
+    lv_obj_t *m;
+    lv_obj_t *s;
+    lv_obj_t *arrow_d;
+    lv_obj_t *arrow_d_1;
+    lv_obj_t *arrow_d_2;
+    lv_obj_t *arrow_u;
+    lv_obj_t *arrow_u_1;
+    lv_obj_t *arrow_u_2;
+    lv_obj_t *hour_up_btn;
+    lv_obj_t *hour_down_btn;
+    lv_obj_t *minute_up_btn;
+    lv_obj_t *minute_down_btn;
+    lv_obj_t *second_down_btn;
+    lv_obj_t *second_up_btn;
+    lv_obj_t *timer_confirm;
+    lv_obj_t *active_timer_screen;
+    lv_obj_t *timer_restart;
+    lv_obj_t *timer_restart_btn;
+    lv_obj_t *timer_cancel;
+    lv_obj_t *timer_cancel_btn;
+    lv_obj_t *timer_s;
+    lv_obj_t *timer_semicolon_s;
+    lv_obj_t *timer_minutes_s;
+    lv_obj_t *timer_seconds_s;
+    lv_obj_t *timer_l;
+    lv_obj_t *timer_hours_l;
+    lv_obj_t *timer_semicolon_l;
+    lv_obj_t *timer_minutes_l;
+    lv_obj_t *timer_semicolon2_l;
+    lv_obj_t *timer_seconds_l;
+    lv_obj_t *timer_pause;
+    lv_obj_t *timer_title_end;
+    lv_obj_t *timer_ring;
 } objects_t;
 
 extern objects_t objects;
@@ -80,6 +121,7 @@ enum ScreensEnum {
     SCREEN_ID_APP_LASER = 4,
     SCREEN_ID_APP_WEATHER = 5,
     SCREEN_ID_APP_PHOTOS = 6,
+    SCREEN_ID_APP_TIMER = 7,
 };
 
 void create_screen_watchface();
@@ -99,6 +141,9 @@ void tick_screen_app_weather();
 
 void create_screen_app_photos();
 void tick_screen_app_photos();
+
+void create_screen_app_timer();
+void tick_screen_app_timer();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

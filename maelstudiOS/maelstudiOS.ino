@@ -27,7 +27,8 @@ enum AppID {
   APP_CAMERA,
   APP_LASER,
   APP_WEATHER,
-  APP_PHOTOS
+  APP_PHOTOS,
+  APP_TIMER
 };
 AppID activeApp = WATCH_FACE;
 
@@ -39,14 +40,29 @@ static lv_img_dsc_t cam_img_dsc;
 #define LASER_PIN 42
 bool laserState = false;
 
+// Timer app
+bool activeTimer = false;
+int timerHours = 0;
+int timerMinutes = 0;
+int timerSeconds = 0;
+uint32_t timerDuration;
+uint32_t timerStartEpoch;
+uint32_t timerElapsedAtPause;
+uint32_t timerElapsed;
+float timerStartSecFraction;
+float timerSecFractionAtPause;
+bool timerPaused = false;
+bool timerEnded = false;
+uint32_t timerNextVibrationTime;
+
 // Photos app
 #define PHOTO_DIR "/img/"
 #define PHOTO_LIST_FILE "/photos.txt"
-#define PHOTO_LIST_FILE_TMP "/photos.tmp" // used while deleting photo
+#define PHOTO_LIST_FILE_TMP "/photos.tmp"  // used while deleting photo
 #define MAX_PHOTOS 500
 uint16_t photoCount = 0;
 int currentPhoto = 0;
-uint8_t photo_buf[200 * 150 * 2];  // 2 bytes per pixel (RGB565)
+uint8_t photo_buf[200 * 150 * 2];  // 200x150 photo preview, 2 bytes per pixel (RGB565)
 static lv_img_dsc_t photo_img_dsc;
 bool loadFirstPhoto = false;
 unsigned long firstPhotoLoadTime = 0;
@@ -59,6 +75,7 @@ char photoList[MAX_PHOTOS][FILENAME_LEN];
 
 // Haptic
 #define HAPTIC_PIN 41
+void vibrateAsync(int duration);
 
 // Display
 #define BACKLIGHT_PIN D6
@@ -81,6 +98,7 @@ I2C_BM8563_DateTypeDef rtcDate;
 I2C_BM8563_TimeTypeDef rtcTime;
 const char* days[] = {"Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"};
 const char* months[] = {"janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre", "decembre"};
+float secFraction;
 
 // BMP280
 #define SEA_LEVEL_HPA 1010.10
@@ -101,7 +119,7 @@ Adafruit_AHT10 aht;
 #define MONTH_ANGLE  3600.0 / 12.0
 
 // AUTO SLEEP
-#define AUTO_SLEEP 20000 // Inactivity time for auto sleep (ms)
+#define AUTO_SLEEP 20000  // Inactivity time for auto sleep (ms)
 unsigned long lastActive = 0;
 bool wakeUp = true;
 
@@ -132,9 +150,9 @@ void setup() {
 
   // Initialize SD card
   pinMode(SD_CS_PIN, OUTPUT);
-  if(!SD.begin(SD_CS_PIN)){
+  if (!SD.begin(SD_CS_PIN)) {
     Serial.begin(115200);
-    Serial.println("Card mount failed");
+    Serial.println("Card mount failed. Check if watch is ON.");
     while (1) {}
   }
 
@@ -151,16 +169,52 @@ void setup() {
   aht.begin();
 
   preferences.begin("config", false);
+  
+  // Timer app
+  if (preferences.getBool("activeTimer", false)) {  // If active timer
+    activeTimer = true;
+    timerDuration = preferences.getULong("tDuration", 0);
+    timerStartEpoch = preferences.getULong("tStartEpoch", 0);
+    timerElapsedAtPause = preferences.getULong("tElAtPause", 0);
+    timerPaused = preferences.getBool("timerPaused", false);
+    if (timerPaused) lv_obj_add_state(objects.timer_pause, LV_STATE_CHECKED);
+  }
 
+  // Auto sleep
   if (preferences.getBool("autoSleepFlag", false)) {
     preferences.putBool("autoSleepFlag", false);
-    digitalWrite(BACKLIGHT_PIN, LOW); // Turn off display backlight
+    digitalWrite(BACKLIGHT_PIN, LOW);  // Turn off display backlight
+
     // Enable wakeup on touch pin, GPIO 44 (falling edge)
     gpio_wakeup_enable((gpio_num_t)TOUCH_INT_PIN, GPIO_INTR_LOW_LEVEL);
     esp_sleep_enable_gpio_wakeup();
-    esp_light_sleep_start(); // ENTER LIGHT SLEEP
+
+    // Enable wakeup for timer
+    if (activeTimer && !timerPaused) {
+      // RTC
+      Wire.begin();
+      rtc.begin();
+
+      uint32_t elapsed = getRtcEpoch() - timerStartEpoch;
+      uint64_t wakeup_us = 0;
+
+      if (elapsed >= timerDuration) {
+          wakeup_us = 1000;  // wake up immediately (1ms)
+      } else {
+          uint32_t remaining = timerDuration - elapsed;
+          wakeup_us = (uint64_t)remaining * 1000000ULL;
+          if (wakeup_us < 1000) wakeup_us = 1000;
+      }
+
+      esp_sleep_enable_timer_wakeup(wakeup_us);
+    }
+
+    esp_light_sleep_start();  // ENTER LIGHT SLEEP
 
     lastActive = millis();
+  } else {
+    // First boot since powerup
+    preferences.putBool("activeTimer", false);
   }
   
   Serial.begin(115200);
@@ -195,31 +249,44 @@ void setup() {
 }
 
 void loop() {
-  // Vibration
-  vibrationTick();
-  
   // Gesture control
   gestureTick();
+  
+  // Vibration
+  vibrationTick();
+
+  // Timer
+  if (activeTimer) {
+    if (timerPaused) timerElapsed = timerElapsedAtPause;
+    else timerElapsed = getRtcEpoch() - timerStartEpoch;
+
+    if (timerElapsed >= timerDuration && activeApp != APP_TIMER) {
+      closeApp();
+      activeApp = APP_TIMER;
+    }
+  }
+
+  if (activeApp == WATCH_FACE || activeApp == HOME || activeApp == APP_TIMER) {
+    // Read current RTC time
+    rtc.getDate(&rtcDate);
+    rtc.getTime(&rtcTime);
+
+    // Keep track of millis offset inside the current second
+    static unsigned long millisAtLastTick = 0;
+    static int lastSecond = -1;
+    if (rtcTime.seconds != lastSecond) {
+      // New tick from RTC
+      lastSecond = rtcTime.seconds;
+      millisAtLastTick = millis();
+    }
+    secFraction = (millis() - millisAtLastTick) / 1000.0;
+    if (secFraction > 1.0) secFraction = 1.0;
+  }
 
   // APPS
-  switch(activeApp) {
+  switch (activeApp) {
     case WATCH_FACE:
     case HOME: {
-      // Read current RTC time
-      rtc.getDate(&rtcDate);
-      rtc.getTime(&rtcTime);
-
-      // Keep track of millis offset inside the current second
-      static unsigned long millisAtLastTick = 0;
-      static int lastSecond = -1;
-      if (rtcTime.seconds != lastSecond) {
-        // New tick from RTC
-        lastSecond = rtcTime.seconds;
-        millisAtLastTick = millis();
-      }
-      float secFraction = (millis() - millisAtLastTick) / 1000.0;
-      if (secFraction > 1.0) secFraction = 1.0;
-
       // Update time and date labels
       lv_label_set_text_fmt(objects.digital_time, "%02i:%02i", rtcTime.hours, rtcTime.minutes);
       lv_label_set_text(objects.day_of_week, days[rtcDate.weekDay]);
@@ -258,7 +325,7 @@ void loop() {
     case APP_CAMERA: {
       camera_fb_t *fb = esp_camera_fb_get();
       jpg2rgb565(fb->buf, fb->len, cam_buf, JPG_SCALE_NONE);
-      esp_camera_fb_return(fb); // Return camera buffer
+      esp_camera_fb_return(fb);  // Return camera buffer
 
       // Update camera image in ui
       lv_img_set_src(objects.camera_feed, &cam_img_dsc);
@@ -268,7 +335,7 @@ void loop() {
     case APP_WEATHER: {
       rtc.getDate(&rtcDate);
       rtc.getTime(&rtcTime);
-      
+
       // Update background
       if (rtcTime.hours > 6 && rtcTime.hours < 18) {
         // DAY
@@ -296,7 +363,7 @@ void loop() {
       lv_label_set_text(objects.humidity, buf);
 
       // Altitude
-      float altitude = bmp.readAltitude(SEA_LEVEL_HPA); // m
+      float altitude = bmp.readAltitude(SEA_LEVEL_HPA);  // m
       sprintf(buf, "%.0f m", altitude);
       lv_label_set_text(objects.altitude, buf);
       break;
@@ -339,6 +406,82 @@ void loop() {
       }
       break;
     }
+    case APP_TIMER: {
+      if (activeTimer) {
+        lv_obj_clear_flag(objects.active_timer_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(objects.timer_set_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(objects.timer_pause, LV_OBJ_FLAG_HIDDEN);
+        
+        if (timerElapsed >= timerDuration) {
+          // Ended timer
+          lv_arc_set_value(objects.timer_ring, 0);
+          lv_obj_clear_flag(objects.timer_title_end, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(objects.timer_pause, LV_OBJ_FLAG_HIDDEN);
+          if (timerDuration < 3600) {
+            lv_label_set_text(objects.timer_minutes_s, "00");
+            lv_label_set_text(objects.timer_seconds_s, "00");
+            lv_obj_clear_flag(objects.timer_s, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(objects.timer_l, LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_label_set_text(objects.timer_hours_l, "00");
+            lv_label_set_text(objects.timer_minutes_l, "00");
+            lv_label_set_text(objects.timer_seconds_l, "00");
+            lv_obj_clear_flag(objects.timer_l, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(objects.timer_s, LV_OBJ_FLAG_HIDDEN);
+          }
+
+          // Show timer screen if not on app
+          if (!timerEnded) loadScreenAnim(SCREEN_ID_APP_TIMER, LV_SCR_LOAD_ANIM_NONE, 0);
+
+          // ALARM
+          if (!timerEnded || millis() > timerNextVibrationTime) {
+            timerEnded = true;
+            vibrateAsync(300);
+            timerNextVibrationTime = millis() + 600;
+            lastActive = millis(); // don't go to sleep
+          }
+        } else {
+          // Running timer
+          lv_obj_add_flag(objects.timer_title_end, LV_OBJ_FLAG_HIDDEN);
+          uint32_t remaining = timerDuration - timerElapsed;
+          timerHours   = remaining / 3600;
+          timerMinutes = (remaining % 3600) / 60;
+          timerSeconds = remaining % 60;
+          
+          if (timerDuration < 3600) {
+            // Less than 1h, show small timer (m:s)
+            lv_label_set_text_fmt(objects.timer_minutes_s, "%02i", timerMinutes);
+            lv_label_set_text_fmt(objects.timer_seconds_s, "%02i", timerSeconds);
+            lv_obj_clear_flag(objects.timer_s, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(objects.timer_l, LV_OBJ_FLAG_HIDDEN);
+          } else {
+            // More than 1h, show large timer (h:m:s)
+            lv_label_set_text_fmt(objects.timer_hours_l, "%02i", timerHours);
+            lv_label_set_text_fmt(objects.timer_minutes_l, "%02i", timerMinutes);
+            lv_label_set_text_fmt(objects.timer_seconds_l, "%02i", timerSeconds);
+            lv_obj_clear_flag(objects.timer_l, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(objects.timer_s, LV_OBJ_FLAG_HIDDEN);
+          }
+          float remainingF;
+          if (timerPaused) remainingF = (float)remaining - (timerSecFractionAtPause - timerStartSecFraction);
+          else remainingF = (float)remaining - (secFraction - timerStartSecFraction);
+          if (remainingF < 0.0f) remainingF = 0.0f;
+
+          uint16_t ringDeg = (uint16_t)((remainingF * 360.0f) / timerDuration);
+          lv_arc_set_value(objects.timer_ring, ringDeg);
+        }
+      } else {
+        lv_obj_clear_flag(objects.timer_set_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(objects.active_timer_screen, LV_OBJ_FLAG_HIDDEN);
+
+        lv_label_set_text_fmt(objects.timer_set_hours, "%02i", timerHours);
+        lv_label_set_text_fmt(objects.timer_set_minutes, "%02i", timerMinutes);
+        lv_label_set_text_fmt(objects.timer_set_seconds, "%02i", timerSeconds);
+        rtc.getTime(&rtcTime);
+        lv_label_set_text_fmt(objects.time_timer_app, "%02i:%02i", rtcTime.hours, rtcTime.minutes);
+      }
+      break;
+    }
   }
 
   // Update UI
@@ -346,17 +489,28 @@ void loop() {
   ui_tick();
 
   // Auto sleep
-  if (wakeUp) { // Turn on display after UI update
+  if (wakeUp) {  // Turn on display after UI update
     // Tick UI for frame to settle
     for(int i=0; i<4; i++) {
       lv_timer_handler();
       ui_tick();
     }
-    digitalWrite(BACKLIGHT_PIN, HIGH); // Turn on display
+    digitalWrite(BACKLIGHT_PIN, HIGH);  // Turn on display
     wakeUp = false;
   }
-  
+
   if (millis() - lastActive >= AUTO_SLEEP) {
+    // Save timer before restart
+    if (activeTimer) {
+      preferences.putBool("activeTimer", true);
+      preferences.putULong("tDuration", timerDuration);
+      preferences.putULong("tStartEpoch", timerStartEpoch);
+      preferences.putULong("tElAtPause", timerElapsedAtPause);
+      preferences.putBool("timerPaused", timerPaused);
+    } else {
+      preferences.putBool("activeTimer", false);
+    }
+
     preferences.putBool("autoSleepFlag", true);
     ESP.restart();
   }
@@ -365,7 +519,7 @@ void loop() {
 }
 
 // UTILS
-void vibrateAsync(int duration = 20) {
+void vibrateAsync(int duration = 40) {
   hapticStart = true;
   hapticDuration = duration;
 }
@@ -453,7 +607,7 @@ void loadPhotoListFromSD() {
   while (f.available() && photoCount < MAX_PHOTOS) {
     size_t len = f.readBytesUntil('\n', line, FILENAME_LEN - 1);
     if (len == 0) continue;
-    if (line[len - 1] == '\r') len--; // Remove CR if file uses \r\n
+    if (line[len - 1] == '\r') len--;  // Remove CR if file uses \r\n
     line[len] = '\0';
 
     strcpy(photoList[photoCount], line);
@@ -462,7 +616,7 @@ void loadPhotoListFromSD() {
   f.close();
 }
 
-bool removePhotoFromList(int idx) { 
+bool removePhotoFromList(int idx) {
   File in = SD.open(PHOTO_LIST_FILE, FILE_READ);
   if (!in) return false;
 
@@ -478,11 +632,11 @@ bool removePhotoFromList(int idx) {
   while (in.available()) {
     size_t len = in.readBytesUntil('\n', line, sizeof(line) - 1);
     if (len == 0) continue;
-    if (line[len - 1] == '\r') len--; // Remove CR if file uses \r\n
+    if (line[len - 1] == '\r') len--;  // Remove CR if file uses \r\n
     line[len] = '\0';
 
     if (strcmp(line, photoList[idx]) == 0) {
-      removed = true; // skip this line
+      removed = true;  // skip this line
     } else if (strlen(line) > 0) {
       out.println(line);
     }
@@ -521,7 +675,7 @@ bool loadJpegFromSD(const char *path, uint32_t *outSize) {
 
   uint32_t jpgSize = file.size();
   if (outSize) *outSize = jpgSize;
-  
+
   uint8_t *jpgBuf = (uint8_t *)malloc(jpgSize);
   if (!jpgBuf) {
     file.close();
@@ -545,13 +699,13 @@ bool loadPhoto(int index) {
   if (loadJpegFromSD(path, &photoSize)) {
     lv_img_set_src(objects.photo, &photo_img_dsc);
     lv_obj_invalidate(objects.photo);
-    
+
     // Photo index
     lv_label_set_text_fmt(objects.photo_index, "%d / %d", index+1, photoCount);
 
     // Timestamp
     int year, month, day, hour, minute, second;
-    if (sscanf(photoList[index], "%4d-%2d-%2d_%2d-%2d-%2d.jpg", &year, &month, &day, &hour, &minute, &second) == 6) { // YYYY-MM-DD_HH-MM-SS.jpg
+    if (sscanf(photoList[index], "%4d-%2d-%2d_%2d-%2d-%2d.jpg", &year, &month, &day, &hour, &minute, &second) == 6) {  // YYYY-MM-DD_HH-MM-SS.jpg
       lv_label_set_text_fmt(objects.photo_date, "%02d . %02d . %04d  %02d:%02d", day, month, year, hour, minute);
       lv_label_set_text_fmt(objects.photo_date_1, "%02d . %02d . %04d  %02d:%02d", day, month, year, hour, minute);
       lv_label_set_text_fmt(objects.photo_date_2, "%02d . %02d . %04d  %02d:%02d", day, month, year, hour, minute);
@@ -561,7 +715,7 @@ bool loadPhoto(int index) {
       // Show filename
       //lv_label_set_text(objects.photo_date, photoList[index]);
     }
-    
+
     // File size
     if (photoSize < 1024) {
       lv_label_set_text_fmt(objects.photo_size, "%lu B", photoSize);
@@ -573,14 +727,14 @@ bool loadPhoto(int index) {
 
     return true;
   }
-  
+
   removePhotoFromList(index);
   return false;
 }
 
 // NAVIGATING MENUS
 void closeApp() {
-  switch(activeApp) {
+  switch (activeApp) {
     case APP_CAMERA: {
       esp_camera_deinit();
       break;
@@ -592,6 +746,18 @@ void closeApp() {
       lv_obj_add_flag(objects.laser_icon_on, LV_OBJ_FLAG_HIDDEN);
       break;
     }
+    case APP_TIMER: {
+      if (activeTimer && timerEnded) {
+        activeTimer = false;
+        timerHours = 0;
+        timerMinutes = 0;
+        timerSeconds = 0;
+        lv_label_set_text_fmt(objects.timer_set_hours, "%02i", timerHours);
+        lv_label_set_text_fmt(objects.timer_set_minutes, "%02i", timerMinutes);
+        lv_label_set_text_fmt(objects.timer_set_seconds, "%02i", timerSeconds);
+        break;
+      }
+    }
   }
 }
 
@@ -600,11 +766,11 @@ void gestureTick() {
     startedGesture = false;
     return;
   }
-  if (touchX <= 1 || touchY <= 1) return; // Ignore invalid coordinates
+  if (touchX <= 1 || touchY <= 1) return;  // Ignore invalid coordinates
 
   lastActive = millis();
 
-  if(!startedGesture) {
+  if (!startedGesture) {
     // Start new gesture
     gestureStartX = touchX;
     gestureStartY = touchY;
@@ -614,28 +780,28 @@ void gestureTick() {
 
   lv_coord_t deltaX = touchX - gestureStartX;
   lv_coord_t deltaY = touchY - gestureStartY;
-  if(abs(deltaX) < GESTURE_SIZE && abs(deltaY) < GESTURE_SIZE) return;
+  if (abs(deltaX) < GESTURE_SIZE && abs(deltaY) < GESTURE_SIZE) return;
 
   // Horizontal gesture detected
-  if(abs(deltaX) > abs(deltaY)) {
+  if (abs(deltaX) > abs(deltaY)) {
     if (deltaX < 0) {
       // LEFT
-      if(activeApp == WATCH_FACE) {
+      if (activeApp == WATCH_FACE) {
         loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300);
         activeApp = HOME;
       }
     } else {
       // RIGHT
-      if(activeApp == HOME) {
+      if (activeApp == HOME) {
         loadScreenAnim(SCREEN_ID_WATCHFACE, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300);
         activeApp = WATCH_FACE;
       }
     }
-  // Vertical gesture detected
-  } else { 
+    // Vertical gesture detected
+  } else {
     if (deltaY < 0) {
       // UP
-      if(activeApp != WATCH_FACE && activeApp != HOME) {
+      if (activeApp != WATCH_FACE && activeApp != HOME) {
         closeApp();
         loadScreenAnim(SCREEN_ID_HOME, LV_SCR_LOAD_ANIM_MOVE_TOP, 300);
         activeApp = HOME;
@@ -667,6 +833,21 @@ void action_open_app_weather(lv_event_t *e) {
   if (activeApp != HOME) return;
   loadScreenAnim(SCREEN_ID_APP_WEATHER, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
   activeApp = APP_WEATHER;
+}
+
+void action_open_app_timer(lv_event_t *e) {
+  if (activeApp != HOME) return;
+  loadScreenAnim(SCREEN_ID_APP_TIMER, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
+  activeApp = APP_TIMER;
+
+  if (!activeTimer) {
+    timerHours = 0;
+    timerMinutes = 0;
+    timerSeconds = 0;
+    lv_label_set_text_fmt(objects.timer_set_hours, "%02i", timerHours);
+    lv_label_set_text_fmt(objects.timer_set_minutes, "%02i", timerMinutes);
+    lv_label_set_text_fmt(objects.timer_set_seconds, "%02i", timerSeconds);
+  }
 }
 
 void action_open_app_photos(lv_event_t *e) {
@@ -705,6 +886,128 @@ void action_toggle_laser(lv_event_t *e) {
   vibrate();
 }
 
+// Timer app
+void action_timer_hour_up(lv_event_t *e) {
+  timerHours++;
+  if (timerHours > 23) timerHours = 0;
+  vibrate(18);
+}
+
+void action_timer_hour_down(lv_event_t *e) {
+  timerHours--;
+  if (timerHours < 0) timerHours = 23;
+  vibrate(18);
+}
+
+void action_timer_minute_up(lv_event_t *e) {
+  timerMinutes++;
+  if (timerMinutes > 59) timerMinutes = 0;
+  vibrate(18);
+}
+
+void action_timer_minute_down(lv_event_t *e) {
+  timerMinutes--;
+  if (timerMinutes < 0) timerMinutes = 59;
+  vibrate(18);
+}
+
+void action_timer_second_up(lv_event_t *e) {
+  timerSeconds++;
+  if (timerSeconds > 59) timerSeconds = 0;
+  vibrate(18);
+}
+
+void action_timer_second_down(lv_event_t *e) {
+  timerSeconds--;
+  if (timerSeconds < 0) timerSeconds = 59;
+  vibrate(18);
+}
+
+void action_timer_confirm(lv_event_t *e) {
+  if (activeApp != APP_TIMER) return;
+
+  // Start timer
+  lv_obj_clear_state(objects.timer_pause, LV_STATE_CHECKED);
+
+  timerDuration = timerHours * 3600 + timerMinutes * 60 + timerSeconds;
+  if (!timerDuration) return;
+
+  timerStartEpoch = getRtcEpoch();
+  timerStartSecFraction = secFraction;
+  timerPaused = false;
+  timerEnded = false;
+  activeTimer = true;
+
+  vibrate();
+}
+
+void action_timer_pause(lv_event_t *e) {
+  if (activeApp != APP_TIMER) return;
+
+  timerPaused = !timerPaused;
+  if (timerPaused) {
+    // Pause
+    timerElapsedAtPause = getRtcEpoch() - timerStartEpoch;
+    timerSecFractionAtPause = secFraction;
+    lv_obj_add_state(objects.timer_pause, LV_STATE_CHECKED);
+  } else {
+    // Unpause
+    timerStartEpoch = getRtcEpoch() - timerElapsedAtPause;
+    lv_obj_clear_state(objects.timer_pause, LV_STATE_CHECKED);
+  }
+  vibrate();
+}
+
+void action_timer_restart(lv_event_t *e) {
+  if (activeApp != APP_TIMER) return;
+
+  // Restart timer
+  lv_obj_clear_state(objects.timer_pause, LV_STATE_CHECKED);
+  timerStartEpoch = getRtcEpoch();
+  timerStartSecFraction = secFraction;
+  timerPaused = false;
+  timerEnded = false;
+  activeTimer = true;
+  vibrate();
+}
+
+void action_timer_cancel(lv_event_t *e) {
+  if (activeApp != APP_TIMER) return;
+  activeTimer = false;
+  timerHours = 0;
+  timerMinutes = 0;
+  timerSeconds = 0;
+  lv_label_set_text_fmt(objects.timer_set_hours, "%02i", timerHours);
+  lv_label_set_text_fmt(objects.timer_set_minutes, "%02i", timerMinutes);
+  lv_label_set_text_fmt(objects.timer_set_seconds, "%02i", timerSeconds);
+  vibrate();
+}
+
+uint32_t getRtcEpoch() {
+  rtc.getDate(&rtcDate);
+  rtc.getTime(&rtcTime);
+
+  struct tm t = {0};
+
+  t.tm_year = rtcDate.year - 1900;
+  t.tm_mon  = rtcDate.month - 1;
+  t.tm_mday = rtcDate.date;
+  t.tm_hour = rtcTime.hours;
+  t.tm_min  = rtcTime.minutes;
+  t.tm_sec  = rtcTime.seconds;
+  t.tm_isdst = 0;
+
+  time_t epoch = mktime(&t);
+
+  // Anti glitch protection
+  static uint32_t lastRtcEpoch = epoch;
+  if (epoch < lastRtcEpoch) epoch = lastRtcEpoch; // glitch, ignore this epoch reading
+  lastRtcEpoch = epoch;
+
+  return epoch;
+}
+
+// Photo app
 void action_take_photo(lv_event_t *e) {
   if (activeApp != APP_CAMERA) return;
   unsigned long start = millis();
@@ -751,7 +1054,7 @@ void action_delete_photo(lv_event_t *e) {
   if (activeApp != APP_PHOTOS) return;
   if (showingDeletePhotoDialog) return;
   if (!photoCount) return;
-  
+
   lv_label_set_text(objects.confirm_delete_filename, photoList[currentPhoto]);
   showingDeletePhotoDialog = true;
   lv_obj_clear_flag(objects.confirm_delete_box, LV_OBJ_FLAG_HIDDEN);
@@ -778,7 +1081,7 @@ void action_delete_photo_yes(lv_event_t *e) {
   if (currentPhoto > 0) {
     currentPhoto -= 1;
   }
-  
+
   while (photoCount && !loadPhoto(currentPhoto)) {
     if (currentPhoto > 0) {
       currentPhoto -= 1;

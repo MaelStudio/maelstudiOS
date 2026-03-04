@@ -40,6 +40,14 @@ extern const lv_img_dsc_t img_trash;
 extern const lv_img_dsc_t img_arrow_r;
 extern const lv_img_dsc_t img_arrow_l;
 extern const lv_img_dsc_t img_photo_loading;
+extern const lv_img_dsc_t img_arrow_down;
+extern const lv_img_dsc_t img_arrow_up;
+extern const lv_img_dsc_t img_timer_app_title;
+extern const lv_img_dsc_t img_timer_cancel;
+extern const lv_img_dsc_t img_timer_restart;
+extern const lv_img_dsc_t img_timer_confirm;
+extern const lv_img_dsc_t img_timer_pause;
+extern const lv_img_dsc_t img_timer_play;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T
@@ -49,7 +57,7 @@ typedef struct _ext_img_desc_t {
 } ext_img_desc_t;
 #endif
 
-extern const ext_img_desc_t images[33];
+extern const ext_img_desc_t images[41];
 
 
 #ifdef __cplusplus

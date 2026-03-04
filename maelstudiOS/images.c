@@ -1,6 +1,6 @@
 #include "images.h"
 
-const ext_img_desc_t images[33] = {
+const ext_img_desc_t images[41] = {
     { "camera", &img_camera },
     { "watchface", &img_watchface },
     { "hour_hand", &img_hour_hand },
@@ -34,4 +34,12 @@ const ext_img_desc_t images[33] = {
     { "arrow_r", &img_arrow_r },
     { "arrow_l", &img_arrow_l },
     { "photo_loading", &img_photo_loading },
+    { "arrow_down", &img_arrow_down },
+    { "arrow_up", &img_arrow_up },
+    { "timer_app_title", &img_timer_app_title },
+    { "timer_cancel", &img_timer_cancel },
+    { "timer_restart", &img_timer_restart },
+    { "timer_confirm", &img_timer_confirm },
+    { "timer_pause", &img_timer_pause },
+    { "timer_play", &img_timer_play },
 };
