@@ -171,8 +171,9 @@ void setup() {
   preferences.begin("config", false);
   
   // Timer app
-  if (preferences.getBool("activeTimer", false)) {  // If active timer
+  if (preferences.getBool("activeTimer", false) && !preferences.getBool("timerEnded", true)) {  // If active timer
     activeTimer = true;
+    timerEnded = preferences.getBool("timerEnded", true);
     timerDuration = preferences.getULong("tDuration", 0);
     timerStartEpoch = preferences.getULong("tStartEpoch", 0);
     timerElapsedAtPause = preferences.getULong("tElAtPause", 0);
@@ -435,7 +436,10 @@ void loop() {
 
           // ALARM
           if (!timerEnded || millis() > timerNextVibrationTime) {
-            timerEnded = true;
+            if (!timerEnded) {
+              timerEnded = true;
+              preferences.putBool("timerEnded", true);
+            }
             vibrateAsync(300);
             timerNextVibrationTime = millis() + 600;
             lastActive = millis(); // don't go to sleep
@@ -502,11 +506,7 @@ void loop() {
   if (millis() - lastActive >= AUTO_SLEEP) {
     // Save timer before restart
     if (activeTimer) {
-      preferences.putBool("activeTimer", true);
-      preferences.putULong("tDuration", timerDuration);
-      preferences.putULong("tStartEpoch", timerStartEpoch);
-      preferences.putULong("tElAtPause", timerElapsedAtPause);
-      preferences.putBool("timerPaused", timerPaused);
+      saveTimerStateInNvs();
     } else {
       preferences.putBool("activeTimer", false);
     }
@@ -749,6 +749,7 @@ void closeApp() {
     case APP_TIMER: {
       if (activeTimer && timerEnded) {
         activeTimer = false;
+        preferences.putBool("activeTimer", activeTimer);
         timerHours = 0;
         timerMinutes = 0;
         timerSeconds = 0;
@@ -923,6 +924,15 @@ void action_timer_second_down(lv_event_t *e) {
   vibrate(18);
 }
 
+void saveTimerStateInNvs() {
+  preferences.putBool("activeTimer", activeTimer);
+  preferences.putBool("timerEnded", timerEnded);
+  preferences.putBool("timerPaused", timerPaused);
+  preferences.putULong("tDuration", timerDuration);
+  preferences.putULong("tStartEpoch", timerStartEpoch);
+  preferences.putULong("tElAtPause", timerElapsedAtPause);
+}
+
 void action_timer_confirm(lv_event_t *e) {
   if (activeApp != APP_TIMER) return;
 
@@ -937,24 +947,8 @@ void action_timer_confirm(lv_event_t *e) {
   timerPaused = false;
   timerEnded = false;
   activeTimer = true;
+  saveTimerStateInNvs();
 
-  vibrate();
-}
-
-void action_timer_pause(lv_event_t *e) {
-  if (activeApp != APP_TIMER) return;
-
-  timerPaused = !timerPaused;
-  if (timerPaused) {
-    // Pause
-    timerElapsedAtPause = getRtcEpoch() - timerStartEpoch;
-    timerSecFractionAtPause = secFraction;
-    lv_obj_add_state(objects.timer_pause, LV_STATE_CHECKED);
-  } else {
-    // Unpause
-    timerStartEpoch = getRtcEpoch() - timerElapsedAtPause;
-    lv_obj_clear_state(objects.timer_pause, LV_STATE_CHECKED);
-  }
   vibrate();
 }
 
@@ -968,12 +962,37 @@ void action_timer_restart(lv_event_t *e) {
   timerPaused = false;
   timerEnded = false;
   activeTimer = true;
+  saveTimerStateInNvs();
+
   vibrate();
 }
+
+void action_timer_pause(lv_event_t *e) {
+  if (activeApp != APP_TIMER) return;
+
+  timerPaused = !timerPaused;
+  preferences.putBool("timerPaused", timerPaused);
+  if (timerPaused) {
+    // Pause
+    timerElapsedAtPause = getRtcEpoch() - timerStartEpoch;
+    preferences.putULong("tElAtPause", timerElapsedAtPause);
+    timerSecFractionAtPause = secFraction;
+    lv_obj_add_state(objects.timer_pause, LV_STATE_CHECKED);
+  } else {
+    // Unpause
+    timerStartEpoch = getRtcEpoch() - timerElapsedAtPause;
+    preferences.putULong("tStartEpoch", timerStartEpoch);
+    lv_obj_clear_state(objects.timer_pause, LV_STATE_CHECKED);
+  }
+  vibrate();
+}
+
+
 
 void action_timer_cancel(lv_event_t *e) {
   if (activeApp != APP_TIMER) return;
   activeTimer = false;
+  preferences.putBool("activeTimer", activeTimer);
   timerHours = 0;
   timerMinutes = 0;
   timerSeconds = 0;
