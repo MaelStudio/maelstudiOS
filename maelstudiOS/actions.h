@@ -35,6 +35,22 @@ extern void action_calc_operation(lv_event_t * e);
 extern void action_calc_digit(lv_event_t * e);
 extern void action_calc_equal(lv_event_t * e);
 extern void action_calc_backspace(lv_event_t * e);
+extern void action_time_plus(lv_event_t * e);
+extern void action_time_minus(lv_event_t * e);
+extern void action_day_plus(lv_event_t * e);
+extern void action_day_minus(lv_event_t * e);
+extern void action_date_plus(lv_event_t * e);
+extern void action_date_minus(lv_event_t * e);
+extern void action_month_plus(lv_event_t * e);
+extern void action_month_minus(lv_event_t * e);
+extern void action_pressure_plus(lv_event_t * e);
+extern void action_pressure_minus(lv_event_t * e);
+extern void action_settings_save(lv_event_t * e);
+extern void action_open_app_settings(lv_event_t * e);
+extern void action_pressure_plus2(lv_event_t * e);
+extern void action_pressure_minus2(lv_event_t * e);
+extern void action_time_plus2(lv_event_t * e);
+extern void action_time_minus2(lv_event_t * e);
 
 
 #ifdef __cplusplus

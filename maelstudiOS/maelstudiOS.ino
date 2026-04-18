@@ -29,7 +29,8 @@ enum AppID {
   APP_WEATHER,
   APP_PHOTOS,
   APP_TIMER,
-  APP_CALC
+  APP_CALC,
+  APP_SETTINGS
 };
 AppID activeApp = WATCH_FACE;
 
@@ -76,6 +77,14 @@ double calcOperandB;
 char calcOperation = 0;
 bool calcNewInput = true;
 
+// Settings app
+int settingsHour;
+int settingsMinute;
+int settingsDay;
+int settingsDate;
+int settingsMonth;
+float settingsPressure;
+
 // SD
 #define SD_CS_PIN D2
 #define FILENAME_LEN 32
@@ -105,13 +114,28 @@ I2C_BM8563 rtc(I2C_BM8563_DEFAULT_ADDRESS, Wire);
 I2C_BM8563_DateTypeDef rtcDate;
 I2C_BM8563_TimeTypeDef rtcTime;
 const char* days[] = {"Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"};
+const char* daysLong[] = {"lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"};
 const char* months[] = {"janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre", "decembre"};
+int daysInMonth[] = {
+  31, // Jan
+  29, // Feb
+  31, // Mar
+  30, // Apr
+  31, // May
+  30, // Jun
+  31, // Jul
+  31, // Aug
+  30, // Sep
+  31, // Oct
+  30, // Nov
+  31  // Dec
+};
 float secFraction;
 
 // BMP280
-#define SEA_LEVEL_HPA 1010.10
 #define BMP_ADDRESS 0x77
 Adafruit_BMP280 bmp;
+float seaLevelKpa = 101.01;
 
 // AHT20
 Adafruit_AHT10 aht;
@@ -177,7 +201,7 @@ void setup() {
   aht.begin();
 
   preferences.begin("config", false);
-  
+
   // Timer app
   if (preferences.getBool("activeTimer", false) && !preferences.getBool("timerEnded", true)) {  // If active timer
     activeTimer = true;
@@ -235,6 +259,13 @@ void setup() {
   // ADC
   analogReadResolution(12);
 
+  // BMP280
+  if (preferences.isKey("seaLevelKpa")) {
+    seaLevelKpa = preferences.getFloat("seaLevelKpa", seaLevelKpa);
+  } else {
+    preferences.putFloat("seaLevelKpa", seaLevelKpa);
+  }
+  
   // Camera APP
   cam_img_dsc.header.always_zero = 0;
   cam_img_dsc.header.w = SCREEN_WIDTH;
@@ -372,7 +403,7 @@ void loop() {
       lv_label_set_text(objects.humidity, buf);
 
       // Altitude
-      float altitude = bmp.readAltitude(SEA_LEVEL_HPA);  // m
+      float altitude = bmp.readAltitude(seaLevelKpa*10.0f);  // m
       sprintf(buf, "%.0f m", altitude);
       lv_label_set_text(objects.altitude, buf);
       break;
@@ -896,6 +927,27 @@ void action_open_app_photos(lv_event_t *e) {
   firstPhotoLoadTime = millis()+350;
 }
 
+void action_open_app_settings(lv_event_t *e) {
+  if (activeApp != HOME) return;
+  loadScreenAnim(SCREEN_ID_APP_SETTINGS, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
+  activeApp = APP_SETTINGS;
+
+  lv_obj_add_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  rtc.getDate(&rtcDate);
+  rtc.getTime(&rtcTime);
+  settingsHour = rtcTime.hours;
+  settingsMinute = rtcTime.minutes;
+  settingsDay = rtcDate.weekDay;
+  settingsDate = rtcDate.date;
+  settingsMonth = rtcDate.month;
+  settingsPressure = seaLevelKpa;
+  lv_label_set_text_fmt(objects.settings_time, "%02i:%02i", settingsHour, settingsMinute);
+  lv_label_set_text(objects.settings_day, daysLong[settingsDay]);
+  lv_label_set_text_fmt(objects.settings_date, "%02d", settingsDate);
+  lv_label_set_text(objects.settings_month, months[settingsMonth-1]);
+  lv_label_set_text_fmt(objects.settings_pressure, "%.2f kPa", settingsPressure);
+}
+
 // EVENT HANDLERS: APPS
 
 // Laser app
@@ -1376,4 +1428,158 @@ void action_calc_backspace(lv_event_t * e) {
   }
   String formatted = formatWithSpaces(calcInput);
   lv_label_set_text(objects.calc_result, formatted.c_str());
+}
+
+// SETTINGS APP
+void action_time_plus(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsMinute++;
+  if (settingsMinute > 59) {
+    settingsMinute = 0;
+    settingsHour++;
+  }
+  if (settingsHour > 23) settingsHour = 0;
+  lv_label_set_text_fmt(objects.settings_time, "%02i:%02i", settingsHour, settingsMinute);
+  vibrate(18);
+}
+
+void action_time_plus2(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsMinute += 10;
+  if (settingsMinute > 59) {
+    settingsMinute = 0;
+    settingsHour++;
+  }
+  if (settingsHour > 23) settingsHour = 0;
+  lv_label_set_text_fmt(objects.settings_time, "%02i:%02i", settingsHour, settingsMinute);
+  vibrate(22);
+}
+
+void action_time_minus(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsMinute--;
+  if (settingsMinute < 0) {
+    settingsMinute = 59;
+    settingsHour--;
+  }
+  if (settingsHour < 0) settingsHour = 23;
+  lv_label_set_text_fmt(objects.settings_time, "%02i:%02i", settingsHour, settingsMinute);
+  vibrate(18);
+}
+
+void action_time_minus2(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsMinute -= 10;
+  if (settingsMinute < 0) {
+    settingsMinute = 59;
+    settingsHour--;
+  }
+  if (settingsHour < 0) settingsHour = 23;
+  lv_label_set_text_fmt(objects.settings_time, "%02i:%02i", settingsHour, settingsMinute);
+  vibrate(22);
+}
+
+void action_day_plus(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsDay++;
+  if (settingsDay > 6) settingsDay = 0;
+  lv_label_set_text(objects.settings_day, daysLong[settingsDay]);
+  vibrate(18);
+}
+
+void action_day_minus(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsDay--;
+  if (settingsDay < 0) settingsDay = 6;
+  lv_label_set_text(objects.settings_day, daysLong[settingsDay]);
+  vibrate(18);
+}
+
+void action_date_plus(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsDate++;
+  if (settingsDate > daysInMonth[settingsMonth-1]) settingsDate = 1;
+  lv_label_set_text_fmt(objects.settings_date, "%02d", settingsDate);
+  vibrate(18);
+}
+
+void action_date_minus(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsDate--;
+  if (settingsDate < 1) settingsDate = daysInMonth[settingsMonth-1];
+  lv_label_set_text_fmt(objects.settings_date, "%02d", settingsDate);
+  vibrate(18);
+}
+
+void action_month_plus(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsMonth++;
+  if (settingsMonth > 12) settingsMonth = 1;
+  lv_label_set_text(objects.settings_month, months[settingsMonth-1]);
+  vibrate(18);
+}
+
+void action_month_minus(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsMonth--;
+  if (settingsMonth < 1) settingsMonth = 12;
+  lv_label_set_text(objects.settings_month, months[settingsMonth-1]);
+  vibrate(18);
+}
+
+void action_pressure_plus(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsPressure += 0.01;
+  lv_label_set_text_fmt(objects.settings_pressure, "%.2f kPa", settingsPressure);
+  vibrate(18);
+}
+
+void action_pressure_plus2(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsPressure += 0.10;
+  lv_label_set_text_fmt(objects.settings_pressure, "%.2f kPa", settingsPressure);
+  vibrate(22);
+}
+
+void action_pressure_minus(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsPressure -= 0.01;
+  if (settingsPressure < 0) settingsPressure = 0;
+  lv_label_set_text_fmt(objects.settings_pressure, "%.2f kPa", settingsPressure);
+  vibrate(18);
+}
+
+void action_pressure_minus2(lv_event_t * e) {
+  lv_obj_clear_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
+  settingsPressure -= 0.10;
+  if (settingsPressure < 0) settingsPressure = 0;
+  lv_label_set_text_fmt(objects.settings_pressure, "%.2f kPa", settingsPressure);
+  vibrate(22);
+}
+
+void action_settings_save(lv_event_t * e) {
+  if (activeApp != APP_SETTINGS) return;
+  vibrate();
+
+  // Program RTC
+  I2C_BM8563_DateTypeDef dateStruct;
+  dateStruct.year = rtcDate.year;
+  dateStruct.month = settingsMonth;
+  dateStruct.date = settingsDate;
+  dateStruct.weekDay = settingsDay;
+
+  I2C_BM8563_TimeTypeDef timeStruct;
+  timeStruct.hours = settingsHour;
+  timeStruct.minutes = settingsMinute;
+  timeStruct.seconds = 0;
+
+  rtc.setDate(&dateStruct);
+  rtc.setTime(&timeStruct);
+
+  // Set seaLevelKpa
+  seaLevelKpa = settingsPressure;
+  preferences.putFloat("seaLevelKpa", seaLevelKpa);
+
+  // Hide save button
+  lv_obj_add_flag(objects.settings_save, LV_OBJ_FLAG_HIDDEN);
 }

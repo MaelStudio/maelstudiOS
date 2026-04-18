@@ -16,6 +16,7 @@ typedef struct _objects_t {
     lv_obj_t *app_photos;
     lv_obj_t *app_timer;
     lv_obj_t *app_calc;
+    lv_obj_t *app_settings;
     lv_obj_t *bg;
     lv_obj_t *digital_time;
     lv_obj_t *battery_voltage;
@@ -133,6 +134,33 @@ typedef struct _objects_t {
     lv_obj_t *btn_3;
     lv_obj_t *btn_0;
     lv_obj_t *btn_comma;
+    lv_obj_t *settings_pressure_plus;
+    lv_obj_t *settings_month_plus;
+    lv_obj_t *settings_date_plus;
+    lv_obj_t *settings_day_plus;
+    lv_obj_t *settings_time_plus;
+    lv_obj_t *settings_title;
+    lv_obj_t *settings_time;
+    lv_obj_t *settings_day;
+    lv_obj_t *settings_date;
+    lv_obj_t *settings_month;
+    lv_obj_t *settings_pressure;
+    lv_obj_t *left_arrow_1;
+    lv_obj_t *right_arrow_1;
+    lv_obj_t *right_arrow_2;
+    lv_obj_t *left_arrow_2;
+    lv_obj_t *right_arrow_3;
+    lv_obj_t *left_arrow_3;
+    lv_obj_t *right_arrow_4;
+    lv_obj_t *left_arrow_4;
+    lv_obj_t *right_arrow_5;
+    lv_obj_t *left_arrow_5;
+    lv_obj_t *settings_pressure_minus;
+    lv_obj_t *settings_month_minus;
+    lv_obj_t *settings_date_minus;
+    lv_obj_t *settings_day_minus;
+    lv_obj_t *settings_time_minus;
+    lv_obj_t *settings_save;
 } objects_t;
 
 extern objects_t objects;
@@ -146,6 +174,7 @@ enum ScreensEnum {
     SCREEN_ID_APP_PHOTOS = 6,
     SCREEN_ID_APP_TIMER = 7,
     SCREEN_ID_APP_CALC = 8,
+    SCREEN_ID_APP_SETTINGS = 9,
 };
 
 void create_screen_watchface();
@@ -171,6 +200,9 @@ void tick_screen_app_timer();
 
 void create_screen_app_calc();
 void tick_screen_app_calc();
+
+void create_screen_app_settings();
+void tick_screen_app_settings();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

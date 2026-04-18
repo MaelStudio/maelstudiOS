@@ -73,6 +73,9 @@ extern const lv_img_dsc_t img_btn___active1;
 extern const lv_img_dsc_t img_btn_divide_active;
 extern const lv_img_dsc_t img_btn_mod_active;
 extern const lv_img_dsc_t img_btn_x_active;
+extern const lv_img_dsc_t img_settings_minus;
+extern const lv_img_dsc_t img_settings_plus;
+extern const lv_img_dsc_t img_settings_title;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T
@@ -82,7 +85,7 @@ typedef struct _ext_img_desc_t {
 } ext_img_desc_t;
 #endif
 
-extern const ext_img_desc_t images[66];
+extern const ext_img_desc_t images[69];
 
 
 #ifdef __cplusplus

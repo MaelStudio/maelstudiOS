@@ -1,6 +1,6 @@
 #include "images.h"
 
-const ext_img_desc_t images[66] = {
+const ext_img_desc_t images[69] = {
     { "camera", &img_camera },
     { "watchface", &img_watchface },
     { "hour_hand", &img_hour_hand },
@@ -67,4 +67,7 @@ const ext_img_desc_t images[66] = {
     { "btn_divide_active", &img_btn_divide_active },
     { "btn_mod_active", &img_btn_mod_active },
     { "btn_x_active", &img_btn_x_active },
+    { "settings_minus", &img_settings_minus },
+    { "settings_plus", &img_settings_plus },
+    { "settings_title", &img_settings_title },
 };
