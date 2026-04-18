@@ -1,4 +1,4 @@
-# maelstudiOS
+# maelstudiOS 1.0
 
 Logiciel pour ma montre intelligente ESP32.
 
