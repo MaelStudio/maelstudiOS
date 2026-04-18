@@ -15,6 +15,7 @@ typedef struct _objects_t {
     lv_obj_t *app_weather;
     lv_obj_t *app_photos;
     lv_obj_t *app_timer;
+    lv_obj_t *app_calc;
     lv_obj_t *bg;
     lv_obj_t *digital_time;
     lv_obj_t *battery_voltage;
@@ -110,6 +111,28 @@ typedef struct _objects_t {
     lv_obj_t *timer_pause;
     lv_obj_t *timer_title_end;
     lv_obj_t *timer_ring;
+    lv_obj_t *calc_result;
+    lv_obj_t *backspace;
+    lv_obj_t *backspace_btn;
+    lv_obj_t *btn_clear;
+    lv_obj_t *btn_sign;
+    lv_obj_t *btn_mod;
+    lv_obj_t *btn_divide;
+    lv_obj_t *btn_x;
+    lv_obj_t *btn_minus;
+    lv_obj_t *btn_plus;
+    lv_obj_t *btn_equal;
+    lv_obj_t *btn_7;
+    lv_obj_t *btn_8;
+    lv_obj_t *btn_9;
+    lv_obj_t *btn_4;
+    lv_obj_t *btn_5;
+    lv_obj_t *btn_6;
+    lv_obj_t *btn_1;
+    lv_obj_t *btn_2;
+    lv_obj_t *btn_3;
+    lv_obj_t *btn_0;
+    lv_obj_t *btn_comma;
 } objects_t;
 
 extern objects_t objects;
@@ -122,6 +145,7 @@ enum ScreensEnum {
     SCREEN_ID_APP_WEATHER = 5,
     SCREEN_ID_APP_PHOTOS = 6,
     SCREEN_ID_APP_TIMER = 7,
+    SCREEN_ID_APP_CALC = 8,
 };
 
 void create_screen_watchface();
@@ -144,6 +168,9 @@ void tick_screen_app_photos();
 
 void create_screen_app_timer();
 void tick_screen_app_timer();
+
+void create_screen_app_calc();
+void tick_screen_app_calc();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

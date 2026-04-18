@@ -27,6 +27,14 @@ extern void action_timer_restart(lv_event_t * e);
 extern void action_timer_cancel(lv_event_t * e);
 extern void action_timer_pause(lv_event_t * e);
 extern void action_open_app_timer(lv_event_t * e);
+extern void action_open_app_calc(lv_event_t * e);
+extern void action_calc_clear(lv_event_t * e);
+extern void action_calc_sign(lv_event_t * e);
+extern void action_calc_comma(lv_event_t * e);
+extern void action_calc_operation(lv_event_t * e);
+extern void action_calc_digit(lv_event_t * e);
+extern void action_calc_equal(lv_event_t * e);
+extern void action_calc_backspace(lv_event_t * e);
 
 
 #ifdef __cplusplus

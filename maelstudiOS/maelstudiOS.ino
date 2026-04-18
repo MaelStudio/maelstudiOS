@@ -28,7 +28,8 @@ enum AppID {
   APP_LASER,
   APP_WEATHER,
   APP_PHOTOS,
-  APP_TIMER
+  APP_TIMER,
+  APP_CALC
 };
 AppID activeApp = WATCH_FACE;
 
@@ -67,6 +68,13 @@ static lv_img_dsc_t photo_img_dsc;
 bool loadFirstPhoto = false;
 unsigned long firstPhotoLoadTime = 0;
 bool showingDeletePhotoDialog = false;
+
+// Calc app
+String calcInput = "0";
+double calcOperandA;
+double calcOperandB;
+char calcOperation = 0;
+bool calcNewInput = true;
 
 // SD
 #define SD_CS_PIN D2
@@ -836,6 +844,22 @@ void action_open_app_weather(lv_event_t *e) {
   activeApp = APP_WEATHER;
 }
 
+void action_open_app_calc(lv_event_t *e) {
+  if (activeApp != HOME) return;
+  calcNewInput = true;
+  calcInput = "0";
+  calcOperation = 0;
+  lv_label_set_text(objects.calc_result, "0");
+  calcHideBackspace();
+  lv_obj_clear_state(objects.btn_plus, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_plus);
+  lv_obj_clear_state(objects.btn_minus, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_minus);
+  lv_obj_clear_state(objects.btn_x, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_x);
+  lv_obj_clear_state(objects.btn_divide, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_divide);
+  lv_obj_clear_state(objects.btn_mod, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_mod);
+  loadScreenAnim(SCREEN_ID_APP_CALC, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
+  activeApp = APP_CALC;
+}
+
 void action_open_app_timer(lv_event_t *e) {
   if (activeApp != HOME) return;
   loadScreenAnim(SCREEN_ID_APP_TIMER, LV_SCR_LOAD_ANIM_OVER_BOTTOM, 300);
@@ -873,6 +897,8 @@ void action_open_app_photos(lv_event_t *e) {
 }
 
 // EVENT HANDLERS: APPS
+
+// Laser app
 void action_toggle_laser(lv_event_t *e) {
   if (activeApp != APP_LASER) return;
   laserState = !laserState;
@@ -986,8 +1012,6 @@ void action_timer_pause(lv_event_t *e) {
   }
   vibrate();
 }
-
-
 
 void action_timer_cancel(lv_event_t *e) {
   if (activeApp != APP_TIMER) return;
@@ -1120,4 +1144,236 @@ void action_delete_photo_yes(lv_event_t *e) {
 
   showingDeletePhotoDialog = false;
   lv_obj_add_flag(objects.confirm_delete_box, LV_OBJ_FLAG_HIDDEN);
+}
+
+// Calc app
+void calcHideBackspace() {
+  lv_obj_add_flag(objects.backspace, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(objects.backspace_btn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_set_pos(objects.calc_result, 49, 20);
+  lv_obj_set_size(objects.calc_result, 137, 22);
+}
+
+void calcShowBackspace() {
+  lv_obj_clear_flag(objects.backspace, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(objects.backspace_btn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_set_pos(objects.calc_result, 43, 20);
+  lv_obj_set_size(objects.calc_result, 118, 22);
+}
+
+String formatWithSpaces(String input) {
+  // Split integer and decimal parts
+  int commaIndex = input.indexOf(',');
+  
+  String intPart;
+  String decPart = "";
+
+  if (commaIndex != -1) {
+    intPart = input.substring(0, commaIndex);
+    decPart = input.substring(commaIndex); // includes comma
+  } else {
+    intPart = input;
+  }
+
+  // Format integer part
+  String result = "";
+  int len = intPart.length();
+  int count = 0;
+
+  for (int i = len - 1; i >= 0; i--) {
+    result = intPart[i] + result;
+    count++;
+
+    if (count == 3 && i != 0) {
+      result = " " + result;
+      count = 0;
+    }
+  }
+
+  // Reattach decimal part
+  return result + decPart;
+}
+
+void action_calc_clear(lv_event_t * e) {
+  if (activeApp != APP_CALC) return;
+  vibrate();
+  if (calcOperation && calcInput == "0") {
+    switch (calcOperation) {
+      case '+': lv_obj_clear_state(objects.btn_plus, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_plus); break;
+      case '-': lv_obj_clear_state(objects.btn_minus, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_minus); break;
+      case '*': lv_obj_clear_state(objects.btn_x, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_x); break;
+      case '/': lv_obj_clear_state(objects.btn_divide, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_divide); break;
+      case '%': lv_obj_clear_state(objects.btn_mod, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_mod); break;
+    }
+    calcOperation = 0;
+  }
+  calcNewInput = true;
+  calcInput = "0";
+  lv_label_set_text(objects.calc_result, "0");
+  calcHideBackspace();
+}
+
+void action_calc_sign(lv_event_t * e) {
+  if (activeApp != APP_CALC) return;
+  if (calcInput == "0") return;
+  vibrate();
+
+  if (calcInput.indexOf('-') == 0) {
+    // Currently negative, make positive
+    calcInput.remove(0, 1);
+  } else {
+    // Currently positive, make negative
+    calcInput = '-' + calcInput;
+  }
+
+  String formatted = formatWithSpaces(calcInput);
+  lv_label_set_text(objects.calc_result, formatted.c_str());
+}
+
+void action_calc_comma(lv_event_t * e) {
+  if (activeApp != APP_CALC) return;
+  if (calcNewInput) return;
+  if (calcInput.indexOf(',') != -1) return; // already has comma
+  vibrate();
+
+  calcInput += ",";
+  String formatted = formatWithSpaces(calcInput);
+  lv_label_set_text(objects.calc_result, formatted.c_str());
+}
+
+void action_calc_operation(lv_event_t * e) {
+  if (activeApp != APP_CALC) return;
+  vibrate();
+
+  if (calcOperation) {
+    switch (calcOperation) {
+      case '+': lv_obj_clear_state(objects.btn_plus, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_plus); break;
+      case '-': lv_obj_clear_state(objects.btn_minus, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_minus); break;
+      case '*': lv_obj_clear_state(objects.btn_x, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_x); break;
+      case '/': lv_obj_clear_state(objects.btn_divide, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_divide); break;
+      case '%': lv_obj_clear_state(objects.btn_mod, LV_STATE_CHECKED); lv_obj_invalidate(objects.btn_mod); break;
+    }
+    if (!calcNewInput) lv_event_send(objects.btn_equal, LV_EVENT_RELEASED, NULL); // Calculate intermediate result
+  }
+
+  // Store current input as operand A
+  calcInput.replace(',', '.');
+  calcOperandA = calcInput.toDouble();
+  calcNewInput = true;
+
+  int op = (int)(uintptr_t)lv_event_get_user_data(e);
+  switch (op) {
+    case 0:
+      calcOperation = '+';
+      lv_obj_add_state(objects.btn_plus, LV_STATE_CHECKED);
+      break;
+    case 1:
+      calcOperation = '-';
+      lv_obj_add_state(objects.btn_minus, LV_STATE_CHECKED);
+      break;
+    case 2:
+      calcOperation = '*';
+      lv_obj_add_state(objects.btn_x, LV_STATE_CHECKED);
+      break;
+    case 3:
+      calcOperation = '/';
+      lv_obj_add_state(objects.btn_divide, LV_STATE_CHECKED);
+      break;
+    case 4:
+      calcOperation = '%';
+      lv_obj_add_state(objects.btn_mod, LV_STATE_CHECKED);
+      break;
+  }
+}
+
+void action_calc_digit(lv_event_t * e) {
+  if (activeApp != APP_CALC) return;
+  vibrate();
+
+  int digit = (int)(uintptr_t)lv_event_get_user_data(e);
+  if (calcNewInput || (calcInput == "0" && digit == 0)) {
+    calcInput = String(digit);
+    calcNewInput = false;
+    calcShowBackspace();
+  } else {
+    calcInput += String(digit);
+  }
+  String formatted = formatWithSpaces(calcInput);
+  lv_label_set_text(objects.calc_result, formatted.c_str());
+}
+
+void action_calc_equal(lv_event_t * e) {
+  if (activeApp != APP_CALC) return;
+  if (!calcOperation || calcNewInput) return;
+  vibrate();
+  
+  calcInput.replace(',', '.');
+  double operandB = calcInput.toDouble();
+  double result;
+  switch (calcOperation) {
+    case '+':
+      result = calcOperandA + operandB;
+      lv_obj_clear_state(objects.btn_plus, LV_STATE_CHECKED);
+      lv_obj_invalidate(objects.btn_plus);
+      break;
+    case '-':
+      result = calcOperandA - operandB;
+      lv_obj_clear_state(objects.btn_minus, LV_STATE_CHECKED);
+      lv_obj_invalidate(objects.btn_minus);
+      break;
+    case '*':
+      result = calcOperandA * operandB;
+      lv_obj_clear_state(objects.btn_x, LV_STATE_CHECKED);
+      lv_obj_invalidate(objects.btn_x);
+      break;
+    case '/':
+      if (operandB != 0) result = calcOperandA / operandB;
+      else calcInput = "ERR";
+      lv_obj_clear_state(objects.btn_divide, LV_STATE_CHECKED);
+      lv_obj_invalidate(objects.btn_divide);
+      break;
+    case '%':
+      if (operandB != 0) result = fmod(calcOperandA, operandB);
+      else calcInput = "ERR";
+      lv_obj_clear_state(objects.btn_mod, LV_STATE_CHECKED);
+      lv_obj_invalidate(objects.btn_mod);
+      break;
+  }
+  
+  if (calcInput == "ERR") {
+    lv_label_set_text(objects.calc_result, "ERR");
+  } else {
+    if (result == floor(result)) { // Check if result is whole number
+      calcInput = String((long)result);
+    } else {
+      calcInput = String(result, 6); // Show up to 6 decimal places
+      calcInput.replace('.', ','); // Comma as decimal separator
+      while (calcInput.endsWith("0")) calcInput.remove(calcInput.length() - 1); // Remove trailing zeros
+      if (calcInput.endsWith(",")) calcInput.remove(calcInput.length() - 1); // Remove trailing comma
+    }
+
+    String formatted = formatWithSpaces(calcInput);
+    lv_label_set_text(objects.calc_result, formatted.c_str());
+  }
+  
+  // Prepare for next input
+  calcNewInput = true;
+  calcOperation = 0;
+
+  calcHideBackspace();
+}
+
+void action_calc_backspace(lv_event_t * e) {
+  if (activeApp != APP_CALC) return;
+  if (calcNewInput) return;
+  vibrate();
+
+  if (calcInput.length() <= 1) {
+    calcInput = "0";
+    calcNewInput = true;
+  } else {
+    calcInput.remove(calcInput.length() - 1);
+  }
+  String formatted = formatWithSpaces(calcInput);
+  lv_label_set_text(objects.calc_result, formatted.c_str());
 }

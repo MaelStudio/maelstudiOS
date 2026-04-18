@@ -48,6 +48,31 @@ extern const lv_img_dsc_t img_timer_restart;
 extern const lv_img_dsc_t img_timer_confirm;
 extern const lv_img_dsc_t img_timer_pause;
 extern const lv_img_dsc_t img_timer_play;
+extern const lv_img_dsc_t img_backspace;
+extern const lv_img_dsc_t img_btn__;
+extern const lv_img_dsc_t img_btn__1;
+extern const lv_img_dsc_t img_btn__2;
+extern const lv_img_dsc_t img_btn_0;
+extern const lv_img_dsc_t img_btn_1;
+extern const lv_img_dsc_t img_btn_2;
+extern const lv_img_dsc_t img_btn_3;
+extern const lv_img_dsc_t img_btn_4;
+extern const lv_img_dsc_t img_btn_5;
+extern const lv_img_dsc_t img_btn_6;
+extern const lv_img_dsc_t img_btn_7;
+extern const lv_img_dsc_t img_btn_8;
+extern const lv_img_dsc_t img_btn_9;
+extern const lv_img_dsc_t img_btn_clear;
+extern const lv_img_dsc_t img_btn_comma;
+extern const lv_img_dsc_t img_btn_divide;
+extern const lv_img_dsc_t img_btn_mod;
+extern const lv_img_dsc_t img_btn_sign;
+extern const lv_img_dsc_t img_btn_x;
+extern const lv_img_dsc_t img_btn___active;
+extern const lv_img_dsc_t img_btn___active1;
+extern const lv_img_dsc_t img_btn_divide_active;
+extern const lv_img_dsc_t img_btn_mod_active;
+extern const lv_img_dsc_t img_btn_x_active;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T
@@ -57,7 +82,7 @@ typedef struct _ext_img_desc_t {
 } ext_img_desc_t;
 #endif
 
-extern const ext_img_desc_t images[41];
+extern const ext_img_desc_t images[66];
 
 
 #ifdef __cplusplus

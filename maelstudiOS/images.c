@@ -1,6 +1,6 @@
 #include "images.h"
 
-const ext_img_desc_t images[41] = {
+const ext_img_desc_t images[66] = {
     { "camera", &img_camera },
     { "watchface", &img_watchface },
     { "hour_hand", &img_hour_hand },
@@ -42,4 +42,29 @@ const ext_img_desc_t images[41] = {
     { "timer_confirm", &img_timer_confirm },
     { "timer_pause", &img_timer_pause },
     { "timer_play", &img_timer_play },
+    { "backspace", &img_backspace },
+    { "btn_-", &img_btn__ },
+    { "btn_+", &img_btn__1 },
+    { "btn_=", &img_btn__2 },
+    { "btn_0", &img_btn_0 },
+    { "btn_1", &img_btn_1 },
+    { "btn_2", &img_btn_2 },
+    { "btn_3", &img_btn_3 },
+    { "btn_4", &img_btn_4 },
+    { "btn_5", &img_btn_5 },
+    { "btn_6", &img_btn_6 },
+    { "btn_7", &img_btn_7 },
+    { "btn_8", &img_btn_8 },
+    { "btn_9", &img_btn_9 },
+    { "btn_clear", &img_btn_clear },
+    { "btn_comma", &img_btn_comma },
+    { "btn_divide", &img_btn_divide },
+    { "btn_mod", &img_btn_mod },
+    { "btn_sign", &img_btn_sign },
+    { "btn_x", &img_btn_x },
+    { "btn_-_active", &img_btn___active },
+    { "btn_+_active", &img_btn___active1 },
+    { "btn_divide_active", &img_btn_divide_active },
+    { "btn_mod_active", &img_btn_mod_active },
+    { "btn_x_active", &img_btn_x_active },
 };
