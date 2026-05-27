@@ -1,24 +1,21 @@
 #define USE_TFT_ESPI_LIBRARY
 #include "lv_xiao_round_screen.h"
-#include <SPI.h>
 #include <Wire.h>
 #include <lvgl.h>
-#include "I2C_BM8563.h"
-#include "ui.h"
-#include "actions.h"
-#include "images.h"
-#include "driver/gpio.h"
-#include <esp_camera.h>
-#include "SD.h"
+#include <SD.h>
 #include <Preferences.h>
-#include "camera.h"
-
+#include "I2C_BM8563.h"
+#include <esp_camera.h>
 #define sensor_t sensor_t_bmp
 #include <Adafruit_Sensor.h>
 #undef sensor_t
-
 #include <Adafruit_BMP280.h>
 #include <Adafruit_AHT10.h>
+#include "driver/gpio.h"
+
+#include "actions.h"
+#include "images.h"
+#include "camera.h"
 
 // APPS
 enum AppID {
@@ -182,7 +179,7 @@ void setup() {
 
   // Initialize SD card
   pinMode(SD_CS_PIN, OUTPUT);
-  if (!SD.begin(SD_CS_PIN)) {
+  if (!SD.begin(SD_CS_PIN, tft.getSPIinstance())) {
     Serial.begin(115200);
     Serial.println("Card mount failed. Check if watch is ON.");
     while (1) {}
