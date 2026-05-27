@@ -13,6 +13,7 @@
 #include <Adafruit_AHT10.h>
 #include "driver/gpio.h"
 
+#include "ui.h"
 #include "actions.h"
 #include "images.h"
 #include "camera.h"
