@@ -40,6 +40,14 @@ Je recommande du fil de cuivre émaillé de 0.3 mm pour les soudures.
 ## Schéma
 ![](img/schematic.png)
 
+## Impression 3D
+
+![](img/drawing.png)
+
+Imprimé en PLA, le boitier est en deux morceaux: celui du [haut](3d/watch_top.stl) et celui du [bas](3d/watch_bottom.stl).
+
+Téléchargez les STL pour l'imprimer, ou remixez le modèle directement depuis le [projet](https://cad.onshape.com/documents/87cdeb38528e34cc146c01ad/w/1691bc3c81b710f203b58e2a/e/8ebf40c8a169b92a3dbc0f3f?renderMode=0&uiState=6a1e059e983dde0ee30bf48c) Onshape.
+
 ## Mods et applis custom
 
 Si vous souhaitez modifier le projet pour rajouter vos propres applications, voici la marche à suivre:
