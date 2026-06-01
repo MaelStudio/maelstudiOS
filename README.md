@@ -17,7 +17,7 @@ Ensuite, les bibliothèques suivantes sont à installer:
 - Adafruit_BMP280
 - Adafruit_AHT10
 
-Avant de téléverser, activer la PSRAM dans **Tools > PSRAM > OPI PSRAM**
+Avant de téléverser, activer la PSRAM dans **Tools > PSRAM > OPI PSRAM**. Sinon, le code ne fonctionnera pas.
 
 ## Matériel
 
@@ -48,9 +48,13 @@ Imprimé en PLA, le boitier est en deux morceaux: celui du [haut](3d/watch_top.s
 
 Téléchargez les STL pour l'imprimer, ou remixez le modèle directement depuis le [projet](https://cad.onshape.com/documents/87cdeb38528e34cc146c01ad/w/1691bc3c81b710f203b58e2a/e/8ebf40c8a169b92a3dbc0f3f?renderMode=0&uiState=6a1e059e983dde0ee30bf48c) Onshape.
 
+## Carte SD
+
+La montre ne démarre pas sans carte SD. Formatter la carte SD au format FAT32 y créer un fichier texte `photos.txt` vide. Le nom de fichier des photos prises seront ajoutées à `photos.txt` pour ne pas avoir à scanner le dossier des photos à chaque fois, ce qui prend du temps. Les photos seront stockées dans la dossier `img`.
+
 ## Mods et applis custom
 
-Si vous souhaitez modifier le projet pour rajouter vos propres applications, voici la marche à suivre:
+Si vous souhaitez modifier le logiciel pour rajouter vos propres applications, voici la marche à suivre !
 
 D'abord, faire le design de l'interface sur un logiciel graphique tel que Figma. Ensuite, installer le logiciel open source [EEZ Studio](https://www.envox.eu/studio/studio-introduction/) et y ouvrir le projet [maelstudiOS](eez-studio-project/maelstudiOS.eez-project). Ajouter les écrans, les widgets et les événements relatifs à l'application. Pour pouvoir ouvrir l'application, il est nécessaire d'avoir un événement `open_app_...` actionné lors du relâchement d'un bouton sur l'écran d'accueil (icône de l'app). Une fois tous les widgets en place, "Build" le projet avec la clé à molette. Ensuite, copier le contenu du dossier `src` dans le projet Arduino maelstudiOS en écrasant tous les fichiers SAUF `ui.c` et `ui.h`. (j'y ai rajouté une fonction qu'il ne faut pas enlever).
 
@@ -70,12 +74,15 @@ void action_open_app_...(lv_event_t *e) {
 
   // Ajouter le code à exécuter à l'ouverture de l'app
 }
-``` 
+```
 
 **Note**: Pour les boutons, privilégier les events `RELEASE` plutôt que `PRESS` car un event `PRESS` est enregistré quand le doigt de l'utilisateur passe au dessus du widget lors d'un geste (swipe). Cela est problématique si un événement non désiré est enregistré lors d'un swipe vers le haut pour fermer l'application, par exemple. Car on ne peut pas savoir si l'utilisateur est en train d'effectuer un geste ou simplement en train de cliquer. Il est alors préférable d'utiliser `RELEASE` et de vérifier dans la fonction callback si l'application est encore ouverte avec la ligne suivante:
 ```cpp
 if (activeApp != ...) return;
 ```
+
+Ressources utiles:
+- Documentation [LVGL](https://lvgl.io/docs/open/8.4/) v8.4
 
 ## Photos
 ![](img/2.jpg)
