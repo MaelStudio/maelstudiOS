@@ -1,13 +1,13 @@
 # maelstudiOS 1.0
 
 Logiciel pour une montre intelligente basée sur le XIAO ESP32-S3 Sense dotée d'une caméra, d'un laser, d'un écran tactile et de plein de capteurs.
-L'interface est affichée grâce à la bibliothèque graphique utilisée [LVGL](https://github.com/lvgl/lvgl) v8.4 et réalisée sur le logiciel [EEZ Studio](https://github.com/eez-open/studio).
+L'interface est affichée grâce à la bibliothèque graphique [LVGL](https://github.com/lvgl/lvgl) v8.4 et réalisée sur le logiciel [EEZ Studio](https://github.com/eez-open/studio).
 
-![](img/watchface.png)
+<img src="img/watchface.png" width=320 />
 
 ## Téléverser le code
 
-Téléchargez [maelstudiOS](maelstudiOS/). Le fichier Arduino à ouvrir est [maelstudiOS.ino](maelstudiOS/maelstudiOS.ino).
+Télécharger maelstudiOS. Le fichier Arduino à ouvrir est [maelstudiOS.ino](maelstudiOS/maelstudiOS.ino).
 Suivre les étapes pour configurer Arduino IDE pour la carte ESP32-S3 sur le site de [Seeed Studio](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/#software-preparation).
 
 Ensuite, les bibliothèques suivantes sont à installer:
@@ -33,11 +33,20 @@ Avant de téléverser, activer la PSRAM dans **Tools > PSRAM > OPI PSRAM**
 - 1x Diode 1N4007
 - 2x Batterie 601230 3.7V 180mAh
 - Pile CR927
+- Entretoises et vis M2 ([lien](https://www.aliexpress.com/item/32862529967.html))
 
-Je recommande du fil de cuivre émaillé de 0.3 mm pour les soudures
+Je recommande du fil de cuivre émaillé de 0.3 mm pour les soudures.
 
 ## Schéma
 ![](img/schematic.png)
+
+## Impression 3D
+
+![](img/drawing.png)
+
+Imprimé en PLA, le boitier est en deux morceaux: celui du [haut](3d/watch_top.stl) et celui du [bas](3d/watch_bottom.stl).
+
+Téléchargez les STL pour l'imprimer, ou remixez le modèle directement depuis le [projet](https://cad.onshape.com/documents/87cdeb38528e34cc146c01ad/w/1691bc3c81b710f203b58e2a/e/8ebf40c8a169b92a3dbc0f3f?renderMode=0&uiState=6a1e059e983dde0ee30bf48c) Onshape.
 
 ## Mods et applis custom
 
