@@ -38,6 +38,12 @@ Avant de téléverser, activer la PSRAM dans **Tools > PSRAM > OPI PSRAM**. Sino
 
 Je recommande du fil de cuivre émaillé de 0.3 mm pour les soudures.
 
+## Préparation de la carte ESP32-S3 Sense
+
+Sur la carte d'expansion de l'ESP32-S3 Sense, couper les connections J1, J2 et J3 tel qu'indiqué sur le [wiki](https://wiki.seeedstudio.com/xiao_esp32s3_pin_multiplexing/#for-sense-version) de Seeed Studio. Cela rendra inactif le microphone mais libèrera les pins D11 et D12 pour le laser et le moteur à vibrations. Couper J3 sert à désactiver le port SD de la carte Sense.
+<img height="300" src="https://github.com/user-attachments/assets/f57305ee-e0d6-41d4-943f-bdb8d069c8ba" />
+
+
 ## Schéma
 ![](img/schematic.png)
 
