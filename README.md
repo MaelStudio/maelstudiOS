@@ -22,7 +22,7 @@ Avant de téléverser, activer la PSRAM dans **Tools > PSRAM > OPI PSRAM**. Sino
 ## Matériel
 
 - Seeed Studio XIAO ESP32S3 Sense
-- Seeed Studio XIAO Round Display
+- Seeed Studio XIAO [Round Display](https://wiki.seeedstudio.com/get_start_round_display/)
 - Caméra OV2640 (câble de 40 mm)
 - Baromètre BMP280
 - AHT20 (Thermomètre et humidité)
