@@ -33,6 +33,7 @@ Avant de téléverser, activer la PSRAM dans **Tools > PSRAM > OPI PSRAM**. Sino
 - 1x Diode 1N4007
 - 2x Batterie 601230 3.7V 180mAh
 - Pile CR927
+- Interrupteur 3pin SS12D10
 - Entretoises et vis M2 ([lien](https://www.aliexpress.com/item/32862529967.html))
 
 Je recommande du fil de cuivre émaillé de 0.3 mm pour les soudures.
