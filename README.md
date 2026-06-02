@@ -51,7 +51,7 @@ Téléchargez les STL pour l'imprimer, ou remixez le modèle directement depuis 
 
 ## Carte SD
 
-La montre ne démarre pas sans carte SD. Formatter la carte SD au format FAT32 y créer un fichier texte `photos.txt` vide. Le nom de fichier des photos prises seront ajoutées à `photos.txt` pour ne pas avoir à scanner le dossier des photos à chaque fois, ce qui prend du temps. Les photos seront stockées dans la dossier `img`.
+La montre ne démarre pas sans carte SD. Elle doit être insérée dans la carte de l'écran, pas la carte de l'ESP32-S3 Sense Formatter la carte SD au format FAT32 y créer un fichier texte `photos.txt` vide. Le nom de fichier des photos prises seront ajoutées à `photos.txt` pour ne pas avoir à scanner le dossier des photos à chaque fois, ce qui prend du temps. Les photos seront stockées dans la dossier `img`.
 
 ## Mods et applis custom
 
