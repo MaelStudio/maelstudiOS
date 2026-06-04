@@ -12,6 +12,8 @@ L'interface est affichée grâce à la bibliothèque graphique [LVGL](https://gi
 Télécharger maelstudiOS. Le fichier Arduino à ouvrir est [maelstudiOS.ino](maelstudiOS/maelstudiOS.ino).
 Suivre les étapes pour configurer Arduino IDE pour la carte ESP32-S3 sur le site de [Seeed Studio](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/#software-preparation).
 
+/!\ Attention : Installer le packet esp32 version 3.0.7, la dernière version (3.3.8 à l'heure où j'écris) ne fonctionne pas car elle est trop lourde pour le projet. 
+
 Ensuite, les bibliothèques suivantes sont à installer:
 - [lvgl](https://github.com/lvgl/lvgl) v8.4
 - [Seeed GFX](https://github.com/Seeed-Studio/Seeed_GFX)
