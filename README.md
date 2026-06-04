@@ -92,6 +92,19 @@ if (activeApp != ...) return;
 Ressources utiles:
 - Documentation [LVGL](https://lvgl.io/docs/open/8.4/) v8.4
 
+## Applications
+
+<img src="img/apps.png" width=320 />
+
+Liste des applications :
+- Calculatrice
+- Minuteur
+- Météo
+- Caméra
+- Photo
+- Réglages
+- Laser
+
 ## Photos
 ![](img/2.jpg)
 ![](img/1.jpg)
