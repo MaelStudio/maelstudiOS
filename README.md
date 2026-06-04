@@ -3,7 +3,9 @@
 Logiciel pour une montre intelligente basée sur le XIAO ESP32-S3 Sense dotée d'une caméra, d'un laser, d'un écran tactile et de plein de capteurs.
 L'interface est affichée grâce à la bibliothèque graphique [LVGL](https://github.com/lvgl/lvgl) v8.4 et réalisée sur le logiciel [EEZ Studio](https://github.com/eez-open/studio).
 
-<img src="img/watchface.png" width=320 />
+<a href="https://youtu.be/VTEKEE5QVSU" target="_blank">
+  <img src="img/thumbnail.png" height=320 />
+</a>
 
 ## Téléverser le code
 
@@ -106,5 +108,7 @@ Liste des applications :
 - Laser
 
 ## Photos
+<img src="img/watchface.png" width=320 />
+
 ![](img/2.jpg)
 ![](img/1.jpg)
