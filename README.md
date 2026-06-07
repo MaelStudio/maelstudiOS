@@ -30,7 +30,7 @@ Avant de téléverser, activer la PSRAM dans **Tools > PSRAM > OPI PSRAM**. Sino
 - Caméra OV2640 (câble de 40 mm)
 - Baromètre BMP280
 - AHT20 (Thermomètre et humidité)
-- Laser 5W 3V (650 nm)
+- Laser 5mW 3V (650 nm)
 - Moteur à vibration 3V 10x2.7 mm
 - 2x Transistor NPN
 - 2x Résistance 1 kΩ
